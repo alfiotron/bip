@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1F7A74"/><stop offset="1" stop-color="#0C3F3C"/></linearGradient></defs>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <!-- cartellino inclinato -->
+  <g transform="rotate(-18 512 530)">
+    <path d="M300 330 L660 330 A40 40 0 0 1 700 370 V690 A40 40 0 0 1 660 730 H300 L200 530 Z" fill="#FBF6EC"/>
+    <circle cx="272" cy="530" r="28" fill="#17625F"/>
+    <g fill="#17625F">
+      <rect x="352" y="410" width="16" height="240" rx="3"/><rect x="386" y="410" width="30" height="240" rx="3"/>
+      <rect x="434" y="410" width="12" height="240" rx="3"/><rect x="464" y="410" width="26" height="240" rx="3"/>
+      <rect x="508" y="410" width="14" height="240" rx="3"/><rect x="540" y="410" width="32" height="240" rx="3"/>
+      <rect x="590" y="410" width="12" height="240" rx="3"/><rect x="620" y="410" width="22" height="240" rx="3"/>
+    </g>
+  </g>
+  <!-- raggio del lettore -->
+  <rect x="150" y="512" width="724" height="22" rx="11" fill="#FF6B5A" opacity=".95"/>
+  <rect x="150" y="500" width="724" height="46" rx="23" fill="#FF6B5A" opacity=".25"/>
+</svg>
