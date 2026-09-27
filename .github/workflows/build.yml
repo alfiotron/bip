@@ -1,0 +1,113 @@
+name: Compila Bip
+
+# Quando parte:
+# - pubblicando un tag di versione (es. v0.2.0): compila per tutte le piattaforme e crea una Release in bozza
+# - a mano, dalla scheda "Actions" → "Compila Bip" → "Run workflow": scegli tu le piattaforme
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: 'Windows (installer .exe e .msi)'
+        type: boolean
+        default: true
+      macos:
+        description: 'macOS, Apple Silicon e Intel (.dmg). Consuma circa 10 volte i minuti di Windows'
+        type: boolean
+        default: false
+      linux:
+        description: 'Linux (.deb, .rpm, .AppImage)'
+        type: boolean
+        default: false
+
+jobs:
+  # Decide su quali sistemi compilare
+  piano:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        shell: bash
+        run: |
+          tutto=${{ github.event_name == 'push' }}
+          items=()
+          if [ "$tutto" = "true" ] || [ "${{ inputs.windows }}" = "true" ]; then
+            items+=('{"nome":"windows","sistema":"windows-latest","args":""}')
+          fi
+          if [ "$tutto" = "true" ] || [ "${{ inputs.macos }}" = "true" ]; then
+            items+=('{"nome":"macos","sistema":"macos-latest","args":"--target universal-apple-darwin"}')
+          fi
+          if [ "$tutto" = "true" ] || [ "${{ inputs.linux }}" = "true" ]; then
+            items+=('{"nome":"linux","sistema":"ubuntu-22.04","args":""}')
+          fi
+          json=$(IFS=,; echo "${items[*]}")
+          echo "matrix={\"include\":[$json]}" >> "$GITHUB_OUTPUT"
+
+  compila:
+    needs: piano
+    if: ${{ needs.piano.outputs.matrix != '{"include":[]}' }}
+    strategy:
+      fail-fast: false # se una piattaforma fallisce, le altre continuano
+      matrix: ${{ fromJSON(needs.piano.outputs.matrix) }}
+    runs-on: ${{ matrix.sistema }}
+    permissions:
+      contents: write # necessario per creare la Release
+
+    steps:
+      - name: Scarica il codice
+        uses: actions/checkout@v4
+
+      - name: Librerie di sistema (solo Linux)
+        if: matrix.nome == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Installa Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Installa Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          # su macOS servono entrambe le architetture per creare un'app "universale"
+          targets: ${{ matrix.nome == 'macos' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache di Rust (velocizza le compilazioni successive)
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Installa le dipendenze
+        run: npm ci
+
+      - name: Compila l'app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: ${{ matrix.args }}
+          # La Release (in bozza) si crea solo quando la compilazione parte da un tag
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: 'Bip ${{ github.ref_name }}'
+          releaseBody: 'Scarica l''installer per il tuo sistema qui sotto, nella sezione "Assets".'
+          releaseDraft: true
+          prerelease: false
+
+      - name: Salva gli installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: bip-${{ matrix.nome }}
+          if-no-files-found: error
+          path: |
+            src-tauri/target/**/release/bundle/nsis/*.exe
+            src-tauri/target/**/release/bundle/msi/*.msi
+            src-tauri/target/**/release/bundle/dmg/*.dmg
+            src-tauri/target/**/release/bundle/deb/*.deb
+            src-tauri/target/**/release/bundle/rpm/*.rpm
+            src-tauri/target/**/release/bundle/appimage/*.AppImage
