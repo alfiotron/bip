@@ -149,6 +149,19 @@ export const MIGRATIONS = [
       updated_at TEXT NOT NULL,
       updated_by TEXT NOT NULL
     )`
+  ],
+
+  // 4: marchi. Ogni prodotto può appartenere a un marchio; la riga di vendita ne conserva
+  // una copia, così le statistiche restano giuste anche se in futuro il prodotto cambia marchio.
+  [
+    `CREATE TABLE IF NOT EXISTS brands (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      updated_by TEXT NOT NULL
+    )`,
+    `ALTER TABLE products ADD COLUMN brand_id TEXT`,
+    `ALTER TABLE sale_lines ADD COLUMN brand_id TEXT`
   ]
 ];
 

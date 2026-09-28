@@ -4,7 +4,11 @@
   import Cover from '../components/Cover.svelte';
   import AdminHeader from '../components/AdminHeader.svelte';
   import FicProductsImport from './fic/FicProductsImport.svelte';
-  import { app } from '../lib/state.svelte.js';
+  import BrandsManager from './prodotti/BrandsManager.svelte';
+  import ImportChooser from './prodotti/ImportChooser.svelte';
+  import ExcelImport from './prodotti/ExcelImport.svelte';
+  import BrandPicker from '../components/BrandPicker.svelte';
+  import { app, brandName } from '../lib/state.svelte.js';
   import { pf, editProduct, newProduct, closeForm, saveProduct, askDeleteProduct, confirmDeleteProduct } from '../lib/products.svelte.js';
   import { eur } from '../lib/money.js';
   import { codeLabel } from '../lib/codes.js';
@@ -12,10 +16,13 @@
   const VATS = [0, 4, 5, 10, 22];
   const list = $derived.by(() => {
     const t = pf.query.trim().toLowerCase();
-    return app.products.filter((p) => !t || `${p.name} ${p.description} ${p.code}`.toLowerCase().includes(t));
+    return app.products.filter((p) => {
+      if (pf.brand === 'none' ? p.brand_id : pf.brand && p.brand_id !== pf.brand) return false;
+      return !t || `${p.name} ${p.description} ${p.code}`.toLowerCase().includes(t);
+    });
   });
   let busy = $state(false);
-  let importing = $state(false);
+  let importing = $state(null); // null | 'choose' | 'fic' | 'excel'
 
   async function save() {
     if (busy) return;
@@ -33,19 +40,53 @@
 {#if importing}
 <div class="admin">
   <AdminHeader />
-  <FicProductsImport onclose={() => (importing = false)} ondone={(m) => { importing = false; pf.form = null; pf.saved = m; }} />
+  {#if importing === 'fic'}
+    <FicProductsImport onclose={() => (importing = 'choose')} ondone={(m) => { importing = null; pf.form = null; pf.saved = m; }} />
+  {:else if importing === 'excel'}
+    <ExcelImport onclose={() => (importing = 'choose')} ondone={(m) => { importing = null; pf.form = null; pf.saved = m; }} />
+  {:else}
+    <ImportChooser onpick={(k) => (importing = k)} onclose={() => (importing = null)} />
+  {/if}
 </div>
 {:else}
 <div class="admin">
   <AdminHeader>
     {#snippet actions()}
-      <button type="button" class="outline sm" onclick={() => (importing = true)}><Icon name="cloud_download" /><span>Importa<span class="long">{" "}da Fatture in Cloud</span></span></button>
+      <button type="button" class="outline sm" onclick={() => (importing = 'choose')}><Icon name="download" /><span>Importa</span></button>
       <button type="button" class="solid sm" onclick={() => newProduct('')}><Icon name="add" /><span>Nuovo<span class="long">{" "}prodotto</span></span></button>
     {/snippet}
   </AdminHeader>
 
+  {#if pf.view === 'brands'}
+    <div class="abody">
+      <div class="stoolbar">
+        <div class="seg tabs2" role="tablist">
+          <button type="button" role="tab" aria-selected="false" onclick={() => (pf.view = 'products')}>Prodotti</button>
+          <button type="button" role="tab" aria-selected="true" class="on">Marchi</button>
+        </div>
+      </div>
+      <BrandsManager />
+    </div>
+  {:else}
   <div class="split" class:has-sel={pf.form}>
     <div class="l">
+      <div class="stoolbar">
+        <div class="seg tabs2" role="tablist">
+          <button type="button" role="tab" aria-selected="true" class="on">Prodotti</button>
+          <button type="button" role="tab" aria-selected="false" onclick={() => { pf.view = 'brands'; closeForm(); }}>Marchi</button>
+        </div>
+        {#if app.brands.length}
+          <div class="aright">
+            <label class="sellab"><span>Marchio</span>
+              <select class="sel" bind:value={pf.brand}>
+                <option value="">Tutti i marchi</option>
+                {#each app.brands as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
+                <option value="none">Senza marchio</option>
+              </select>
+            </label>
+          </div>
+        {/if}
+      </div>
       <div class="psearch"><Icon name="search" /><input class="field" placeholder="Cerca per nome, descrizione o codice" bind:value={pf.query} /></div>
       {#if list.length}
         <div class="pgrid phrow"><span></span><span>Prodotto</span><span>Codice</span><span>IVA</span><span class="r-al">Stato</span><span class="r-al">Prezzo</span><span></span></div>
@@ -54,7 +95,7 @@
             <Cover item={p} />
             <span style="min-width:0">
               <span class="rt">{p.name}</span>
-              <span class="ra">{p.description}</span>
+              <span class="ra">{[app.brands.length && p.brand_id ? brandName(p.brand_id) : '', p.description].filter(Boolean).join(', ')}</span>
             </span>
             <span class="pcode num">{p.code ? codeLabel(p.code) : 'Nessun codice'}</span>
             <span class="pvat">{p.vat_rate ? p.vat_rate + '%' : 'Assolta'}</span>
@@ -84,6 +125,9 @@
 
         <label class="flabel" for="fa">Descrizione (facoltativa)</label>
         <input id="fa" class="field" placeholder="Autore, editore o formato" bind:value={f.description} />
+
+        <span class="flabel">Marchio</span>
+        <BrandPicker bind:value={f.brand_id} allowCreate />
 
         <label class="flabel" for="fc">Codice a barre (ISBN o EAN)</label>
         <input id="fc" class="field num" class:bad={pf.errors.code} inputmode="numeric" placeholder="9788812345671" bind:value={f.code} />
@@ -136,5 +180,6 @@
       {/if}
     </div>
   </div>
+  {/if}
 </div>
 {/if}

@@ -62,7 +62,7 @@ export function addProduct(p, code = '') {
     pos.lines.splice(i, 1);
     pos.lines.unshift(line);
   } else {
-    pos.lines.unshift({ key, product_id: p.id, code: p.code, name: p.name, unit_cents: p.price_cents, vat_rate: p.vat_rate, qty: 1, free: false });
+    pos.lines.unshift({ key, product_id: p.id, code: p.code, name: p.name, unit_cents: p.price_cents, vat_rate: p.vat_rate, qty: 1, free: false, brand_id: p.brand_id || null });
   }
   pos.pay = null;
   pos.panel = 'cart';
@@ -132,9 +132,9 @@ export function openManual(prefill = '') {
   pos.view = 'manual';
 }
 
-export function addManual(name, cents, vat) {
+export function addManual(name, cents, vat, brandId = null) {
   const key = 'm:' + uuid();
-  pos.lines.unshift({ key, product_id: null, code: '', name: name.trim() || 'Voce libera', unit_cents: cents, vat_rate: vat, qty: 1, free: true });
+  pos.lines.unshift({ key, product_id: null, code: '', name: name.trim() || 'Voce libera', unit_cents: cents, vat_rate: vat, qty: 1, free: true, brand_id: brandId });
   pos.view = 'cart';
   pos.pay = null;
   flash(key);
@@ -177,7 +177,8 @@ export async function confirmPay() {
       name: l.name,
       unit_cents: l.unit_cents,
       vat_rate: l.vat_rate,
-      qty: l.qty
+      qty: l.qty,
+      brand_id: l.brand_id || null
     }))
   };
   try {

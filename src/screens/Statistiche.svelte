@@ -3,7 +3,7 @@
   import Cover from '../components/Cover.svelte';
   import BarChart from '../components/BarChart.svelte';
   import AdminHeader from '../components/AdminHeader.svelte';
-  import { app, currentEvent, productById } from '../lib/state.svelte.js';
+  import { app, currentEvent, productById, brandName } from '../lib/state.svelte.js';
   import { eventStatistics, delta, dayLabel, dayLabelLong } from '../lib/stats.js';
   import { eventSummary } from '../lib/stock.js';
   import { exportEvent } from '../lib/export.js';
@@ -22,6 +22,7 @@
   let sort = $state('q');
   let picked = $state(null); // prodotto di cui mostrare l'andamento
   let exporting = $state(false);
+  let brand = $state(''); // filtro dell'elenco prodotti: '' tutti, 'none' senza marchio, oppure l'id
 
   const events = $derived([...app.events].sort((x, y) => y.is_open - x.is_open));
   const ev = $derived(app.events.find((e) => e.id === eventId) || null);
@@ -74,7 +75,7 @@
         const s = stock[pid];
         if (!m.has(pid) && (s.loaded || s.ddtOut)) {
           const p = productById(pid);
-          m.set(pid, { key: pid, product_id: pid, name: p?.name || 'Prodotto eliminato', code: p?.code || '', unit_cents: p?.price_cents || 0, sold: 0, gifts: 0, days: {} });
+          m.set(pid, { key: pid, product_id: pid, brand: p?.brand_id || null, name: p?.name || 'Prodotto eliminato', code: p?.code || '', unit_cents: p?.price_cents || 0, sold: 0, gifts: 0, days: {} });
         }
       }
     }
@@ -89,7 +90,10 @@
   const rows = $derived.by(() => {
     const t = query.trim().toLowerCase();
     const by = { n: (x, y) => x.name.localeCompare(y.name, 'it'), q: (x, y) => y.sold - x.sold || y.gifts - x.gifts, r: (x, y) => (x.left ?? 1e9) - (y.left ?? 1e9) };
-    return allRows.filter((r) => !t || `${r.name} ${r.description} ${r.code}`.toLowerCase().includes(t)).sort(by[sort]);
+    return allRows
+      .filter((r) => (brand === 'none' ? !r.brand : !brand || r.brand === brand))
+      .filter((r) => !t || `${r.name} ${r.description} ${r.code}`.toLowerCase().includes(t))
+      .sort(by[sort]);
   });
   const sumOf = (f) => rows.reduce((s, r) => s + (f(r) || 0), 0);
   const pick = $derived(picked ? allRows.find((r) => r.key === picked) || null : null);
@@ -105,7 +109,7 @@
     if (exporting) return;
     exporting = true;
     try {
-      const path = await exportEvent(ev, app.products, tillName);
+      const path = await exportEvent(ev, app.products, tillName, brandName, app.brands.length > 0);
       if (path) showToast('ok', 'File Excel salvato', { detail: path, sound: null });
     } catch (e) {
       showToast('err', 'Esportazione non riuscita', { detail: String(e?.message || e) });
@@ -137,6 +141,15 @@
               {#each events as e (e.id)}<option value={e.id}>{e.name}{e.is_open ? '' : ' (chiuso)'}</option>{/each}
             </select>
           </label>
+          {#if tab === 'prod' && app.brands.length}
+            <label class="sellab"><span>Marchio</span>
+              <select class="sel" bind:value={brand}>
+                <option value="">Tutti i marchi</option>
+                {#each app.brands as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
+                <option value="none">Senza marchio</option>
+              </select>
+            </label>
+          {/if}
           {#if tab === 'sum' && !day}
             <label class="sellab"><span>Confronta con</span>
               <select class="sel" bind:value={compareId}>
@@ -212,6 +225,28 @@
               {/if}
             </div>
           </div>
+
+          {#if app.brands.length && a.brands.length}
+            <div class="panel" style="margin-top:12px">
+              <h3>Per marchio</h3>
+              <div class="tscroll">
+                <table class="tbl" style="min-width:560px">
+                  <thead><tr><th>Marchio</th><th class="r">Venduti</th><th class="r">Omaggi</th><th class="r">A prezzo pieno</th><th class="r">Incassato</th></tr></thead>
+                  <tbody>
+                    {#each a.brands as x (x.brand || '')}
+                      <tr class="clickrow" onclick={() => { brand = x.brand || 'none'; tab = 'prod'; }}>
+                        <td>{brandName(x.brand)}</td><td class="r num">{x.sold}</td><td class="r num">{x.gifts || '—'}</td>
+                        <td class="r num">{eur(x.list)}</td><td class="r num"><strong>{eur(x.income)}</strong></td>
+                      </tr>
+                    {/each}
+                  </tbody>
+                  <tfoot><tr><td>Totale</td><td class="r num">{a.brands.reduce((t, x) => t + x.sold, 0)}</td><td class="r num">{a.brands.reduce((t, x) => t + x.gifts, 0)}</td>
+                    <td class="r num">{eur(a.brands.reduce((t, x) => t + x.list, 0))}</td><td class="r num">{eur(a.brands.reduce((t, x) => t + x.income, 0))}</td></tr></tfoot>
+                </table>
+              </div>
+              <p class="hint" style="margin:10px 0 0">"Incassato" tiene conto di sconti e arrotondamenti, ripartiti tra i prodotti di ogni vendita in proporzione al loro prezzo. Tocca un marchio per vederne i prodotti.</p>
+            </div>
+          {/if}
 
           <div class="grid2">
             <div class="panel">
@@ -293,7 +328,7 @@
                 <tbody>
                   {#each rows as r (r.key)}
                     <tr class="clickrow" class:picked={picked === r.key} onclick={() => openProduct(r)}>
-                      <td><div class="pcell"><Cover item={r.product_id ? { id: r.product_id, name: r.name } : { free: true }} /><div style="min-width:0"><span>{r.name}</span>{#if r.description}<small>{r.description}</small>{:else if !r.product_id}<small>Voce libera</small>{/if}</div></div></td>
+                      <td><div class="pcell"><Cover item={r.product_id ? { id: r.product_id, name: r.name } : { free: true }} /><div style="min-width:0"><span>{r.name}</span><small>{[app.brands.length && r.brand ? brandName(r.brand) : '', r.description || (!r.product_id ? 'Voce libera' : '')].filter(Boolean).join(', ')}</small></div></div></td>
                       <td class="num" style="color:var(--ink-2)">{r.code ? codeLabel(r.code) : '—'}</td>
                       <td class="r num">{eur(r.unit_cents)}</td>
                       {#if !day}<td class="r num">{r.loaded || '—'}</td>{/if}

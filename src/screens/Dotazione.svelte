@@ -31,6 +31,7 @@
     return app.products.filter((p) => {
       const s = sOf(p.id);
       if (!p.active && !s.loaded) return false;
+      if (dz.brand === 'none' ? p.brand_id : dz.brand && p.brand_id !== dz.brand) return false;
       if (t && !`${p.name} ${p.description} ${p.code}`.toLowerCase().includes(t)) return false;
       if (dz.filter === 'low') return s.loaded && fairLevel(p, s.left) === 'warn';
       if (dz.filter === 'out') return s.loaded && fairLevel(p, s.left) === 'bad';
@@ -88,6 +89,17 @@
               <button type="button" class:on={dz.filter === 'low'} onclick={() => (dz.filter = 'low')}>In esaurimento ({count('warn')})</button>
               <button type="button" class:on={dz.filter === 'out'} onclick={() => (dz.filter = 'out')}>Finiti ({count('bad')})</button>
             </div>
+            {#if app.brands.length}
+              <div class="aright">
+                <label class="sellab"><span>Marchio</span>
+                  <select class="sel" bind:value={dz.brand}>
+                    <option value="">Tutti i marchi</option>
+                    {#each app.brands as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
+                    <option value="none">Senza marchio</option>
+                  </select>
+                </label>
+              </div>
+            {/if}
           </div>
           <div class="psearch"><Icon name="search" /><input class="field" placeholder="Cerca per nome, descrizione o codice" bind:value={dz.query} /></div>
           {#if list.length}

@@ -20,7 +20,7 @@ export async function loadDemoData() {
   for (const [code, name, description, price_cents, vat_rate] of PRODUCTS) {
     const id = uuid();
     ids.push(id);
-    await record('product.upsert', { id, code, name, description, price_cents, vat_rate, active: 1, alert_below: 5, fic_id: null });
+    await record('product.upsert', { id, code, name, description, price_cents, vat_rate, active: 1, alert_below: 5, fic_id: null, brand_id: null });
   }
   const eventId = uuid();
   await record('event.upsert', { id: eventId, name: 'Fiera di prova', is_open: 1 });

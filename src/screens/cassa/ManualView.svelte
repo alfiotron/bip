@@ -3,12 +3,15 @@
   import Keypad from '../../components/Keypad.svelte';
   import { pos, addManual } from '../../lib/pos.svelte.js';
   import { editAmount, parseAmount } from '../../lib/money.js';
+  import { app } from '../../lib/state.svelte.js';
+  import BrandPicker from '../../components/BrandPicker.svelte';
 
   const VATS = [0, 4, 5, 10, 22];
   let name = $state(pos.manualPrefill);
   let vat = $state(22);
   let amount = $state('');
   let err = $state('');
+  let brand = $state(null);
 
   function key(k) {
     err = '';
@@ -17,7 +20,7 @@
   function add() {
     const c = parseAmount(amount);
     if (!amount || isNaN(c) || c <= 0) { err = 'Inserisci un prezzo maggiore di zero.'; return; }
-    addManual(name, c, vat);
+    addManual(name, c, vat, brand);
   }
 </script>
 
@@ -37,6 +40,10 @@
       {/each}
     </div>
     <p class="hint">{vat === 0 ? "IVA assolta all'origine, come per i libri (art. 74)." : 'Il prezzo si intende IVA inclusa.'}</p>
+    {#if app.brands.length}
+      <span class="kl" style="margin-top:24px">Marchio</span>
+      <BrandPicker bind:value={brand} />
+    {/if}
   </div>
   <div>
     <span class="kl">Prezzo, IVA inclusa</span>

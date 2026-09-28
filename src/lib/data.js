@@ -7,6 +7,10 @@ export async function loadProducts() {
   return rows.map((r) => ({ ...r, active: !!r.active }));
 }
 
+export async function loadBrands() {
+  return q('SELECT * FROM brands ORDER BY name COLLATE NOCASE');
+}
+
 export async function loadEvents() {
   const rows = await q('SELECT * FROM events ORDER BY is_open DESC, updated_at DESC');
   return rows.map((r) => ({ ...r, is_open: !!r.is_open }));

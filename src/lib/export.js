@@ -7,7 +7,7 @@ import { codeLabel } from './codes.js';
 const METHODS = { card: 'Carta', cash: 'Contanti', gift: 'Omaggio' };
 
 /** Esporta in Excel le statistiche complete di un evento: prodotti, giorni, vendite e IVA. */
-export async function exportEvent(event, products, tillName) {
+export async function exportEvent(event, products, tillName, brandName = () => '', withBrands = false) {
   const st = await eventStatistics(event.id);
   const stock = await eventSummary(event.id);
   const byId = new Map(products.map((p) => [p.id, p]));
@@ -19,7 +19,7 @@ export async function exportEvent(event, products, tillName) {
     const s = stock[pid];
     if (!rows.has(pid) && (s.loaded || s.ddtOut)) {
       const p = byId.get(pid);
-      rows.set(pid, { key: pid, product_id: pid, name: p?.name || 'Prodotto eliminato', code: p?.code || '', unit_cents: p?.price_cents || 0, sold: 0, gifts: 0, days: {} });
+      rows.set(pid, { key: pid, product_id: pid, brand: p?.brand_id || null, name: p?.name || 'Prodotto eliminato', code: p?.code || '', unit_cents: p?.price_cents || 0, sold: 0, gifts: 0, days: {} });
     }
   }
   const prodRows = [...rows.values()]
@@ -29,6 +29,7 @@ export async function exportEvent(event, products, tillName) {
       const p = r.product_id ? byId.get(r.product_id) : null;
       return [
         r.name,
+        ...(withBrands ? [brandName(r.brand)] : []),
         p?.description || (r.product_id ? '' : 'Voce libera'),
         r.code ? codeLabel(r.code) : '',
         r.unit_cents,
@@ -40,8 +41,12 @@ export async function exportEvent(event, products, tillName) {
         ...(multiDay ? st.days.map((d) => r.days[d]?.sold || '') : [])
       ];
     });
-  const sumCol = (i) => prodRows.reduce((t, r) => t + (Number(r[i]) || 0), 0);
-  prodRows.push(totalRow(['Totale', '', '', '', sumCol(4), sumCol(5), sumCol(6), sumCol(7), sumCol(8), ...(multiDay ? st.days.map((_, i) => sumCol(9 + i)) : [])]));
+  const o = withBrands ? 1 : 0; // colonne spostate dalla colonna Marchio
+  const sumCol = (i) => prodRows.reduce((t, r) => t + (Number(r[i + o]) || 0), 0);
+  prodRows.push(totalRow(['Totale', ...(withBrands ? [''] : []), '', '', '', sumCol(4), sumCol(5), sumCol(6), sumCol(7), sumCol(8), ...(multiDay ? st.days.map((_, i) => sumCol(9 + i)) : [])]));
+
+  const brandRows = st.brands.map((b) => [brandName(b.brand), b.sold, b.gifts || '', b.list, b.list - b.income, b.income]);
+  brandRows.push(totalRow(['Totale', ...[1, 2].map((i) => brandRows.reduce((t, r) => t + (Number(r[i]) || 0), 0)), ...[3, 4, 5].map((i) => brandRows.reduce((t, r) => t + (Number(r[i]) || 0), 0))]));
 
   const dayRows = st.byDay.map((d) => [dayLabel(d.day), d.count, d.pieces, d.income, d.methods.card.total, d.methods.cash.total, d.discounts, d.rounding, d.gifts.pieces]);
   dayRows.push(totalRow(['Totale', st.count, st.pieces, st.income, st.methods.card.total, st.methods.cash.total, st.discounts, st.rounding, st.gifts.pieces]));
@@ -70,13 +75,23 @@ export async function exportEvent(event, products, tillName) {
     {
       name: 'Prodotti',
       columns: [
-        { header: 'Prodotto', width: 36 }, { header: 'Descrizione', width: 24 }, { header: 'Codice', width: 20 },
+        { header: 'Prodotto', width: 36 }, ...(withBrands ? [{ header: 'Marchio', width: 22 }] : []), { header: 'Descrizione', width: 24 }, { header: 'Codice', width: 20 },
         { header: 'Prezzo', width: 11, type: 'money' }, { header: 'Portati', width: 9, type: 'int' }, { header: 'Venduti', width: 9, type: 'int' },
         { header: 'Omaggi', width: 9, type: 'int' }, { header: 'DDT', width: 8, type: 'int' }, { header: 'Rimasti', width: 9, type: 'int' },
         ...(multiDay ? st.days.map((d) => ({ header: 'Venduti ' + dayLabel(d), width: 16, type: 'int' })) : [])
       ],
       rows: prodRows
     },
+    ...(withBrands
+      ? [{
+          name: 'Marchi',
+          columns: [
+            { header: 'Marchio', width: 28 }, { header: 'Pezzi venduti', width: 14, type: 'int' }, { header: 'Omaggi', width: 10, type: 'int' },
+            { header: 'A prezzo pieno', width: 16, type: 'money' }, { header: 'Sconti e arrotondamenti', width: 22, type: 'money' }, { header: 'Incassato', width: 14, type: 'money' }
+          ],
+          rows: brandRows
+        }]
+      : []),
     {
       name: 'Giorni',
       columns: [

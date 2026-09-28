@@ -2,11 +2,11 @@
   import Icon from '../../components/Icon.svelte';
   import Cover from '../../components/Cover.svelte';
   import FicNotConnected from './FicNotConnected.svelte';
-  import { app, reloadProducts, bump } from '../../lib/state.svelte.js';
+  import { app, brandName } from '../../lib/state.svelte.js';
   import { ficConfig } from '../../lib/ficStore.js';
   import { fetchAllProducts } from '../../lib/fic.js';
-  import { record } from '../../lib/journal.js';
-  import { uuid } from '../../lib/ids.js';
+  import ImportBrandBar from '../../components/ImportBrandBar.svelte';
+  import { matchLocal, statusOf as ruleStatus, importItems, importMessage } from '../../lib/catalogImport.js';
   import { eur } from '../../lib/money.js';
   import { codeLabel } from '../../lib/codes.js';
 
@@ -20,16 +20,11 @@
   let selected = $state(new Set());
   let query = $state('');
   let busy = $state(false);
+  let brand = $state(null); // marchio in cui scrivere i prodotti importati
 
-  function localFor(f) {
-    return app.products.find((p) => p.fic_id && p.fic_id === f.fic_id) || (f.code ? app.products.find((p) => p.code === f.code) : null) || null;
-  }
-  function statusOf(f, p) {
-    if (!p) return f.code ? 'new' : 'nocode';
-    const changed = p.name !== f.name || (p.description || '') !== f.description || p.price_cents !== f.price_cents || p.vat_rate !== f.vat_rate || p.code !== f.code;
-    if (changed) return 'changed';
-    return p.fic_id === f.fic_id ? 'same' : 'link'; // uguale, ma non ancora collegato a Fatture in Cloud
-  }
+  const localFor = (f) => matchLocal(f, app.products);
+  // Come per Excel, più "senza codice" per i prodotti nuovi che non si potranno scansionare
+  const statusOf = (f, p) => (!p && !f.code ? 'nocode' : ruleStatus(f, p));
 
   async function load() {
     loading = true;
@@ -63,27 +58,11 @@
   async function importSelected() {
     if (!selected.size) { error = 'Seleziona almeno un prodotto da importare.'; return; }
     busy = true;
-    let created = 0, updated = 0;
-    for (const f of items.filter((i) => selected.has(i.fic_id))) {
-      const p = f.local;
-      await record('product.upsert', {
-        id: p ? p.id : uuid(),
-        code: f.code,
-        name: f.name,
-        description: f.description,
-        price_cents: f.price_cents,
-        vat_rate: f.vat_rate,
-        active: p ? (p.active ? 1 : 0) : 1,
-        alert_below: p ? p.alert_below : 5,
-        fic_id: f.fic_id
-      });
-      p ? updated++ : created++;
-    }
-    await reloadProducts();
-    bump();
+    const r = await importItems(items.filter((i) => selected.has(i.fic_id)), brand);
     busy = false;
-    ondone(`Da Fatture in Cloud: ${created === 1 ? '1 prodotto nuovo' : created + ' prodotti nuovi'}, ${updated === 1 ? '1 aggiornato' : updated + ' aggiornati'}.`);
+    ondone('Da Fatture in Cloud: ' + importMessage(r, brand ? brandName(brand) : '').replace(/^./, (c) => c.toLowerCase()));
   }
+
 </script>
 
 {#if cfg && (!cfg.token || !cfg.companyId)}
@@ -97,6 +76,7 @@
       <div class="confirmbox" style="margin-bottom:12px"><p>{error}</p><button type="button" class="go" onclick={load}>Riprova</button></div>
     {:else}
       <p class="hint" style="margin:-8px 0 14px">I prodotti si riconoscono dal collegamento con Fatture in Cloud o, la prima volta, dal codice a barre. Quelli già presenti vengono aggiornati con nome, descrizione, prezzo e aliquota di Fatture in Cloud. "Da collegare" indica prodotti identici che verranno solo associati, così in futuro si riconoscono anche se cambi il codice.</p>
+      <div style="margin-bottom:16px"><ImportBrandBar bind:value={brand} moving={items.filter((i) => selected.has(i.fic_id) && i.local && brand && i.local.brand_id && i.local.brand_id !== brand).length} /></div>
       <div class="counts">
         <span class="tag" style="margin-left:0">{count('new')} {count('new') === 1 ? 'nuovo' : 'nuovi'}</span>
         <span class="tag warn" style="margin-left:0">{count('changed')} {count('changed') === 1 ? 'modificato' : 'modificati'}</span>
@@ -114,7 +94,7 @@
         <button type="button" class="fgrid" aria-pressed={on} onclick={() => toggle(f.fic_id)}>
           <span class="ck" class:on><Icon name={on ? 'check_box' : 'check_box_outline_blank'} fill={on} /></span>
           <Cover item={f.local || { id: f.fic_id, name: f.name }} />
-          <span style="min-width:0"><span class="rt">{f.name}</span><span class="ra num">{f.code ? codeLabel(f.code) : 'Senza codice: si vende solo cercandolo'}</span></span>
+          <span style="min-width:0"><span class="rt">{f.name}</span><span class="ra num">{f.code ? codeLabel(f.code) : 'Senza codice: si vende solo cercandolo'}{f.local && f.local.brand_id && app.brands.length ? ', ora in ' + brandName(f.local.brand_id) : ''}</span></span>
           <span class="fhide"><span class="tag {TAGS[f.status][0]}" style="margin-left:0">{TAGS[f.status][1]}</span></span>
           <span class="r-al num" style="font-weight:600">{#if f.status === 'changed' && f.local.price_cents !== f.price_cents}<span class="old">{eur(f.local.price_cents)}</span>{/if}{eur(f.price_cents)}</span>
           <span class="r-al fhide" style="color:var(--ink-2);font-size:14px">{f.vat_rate ? f.vat_rate + '%' : 'Assolta'}</span>

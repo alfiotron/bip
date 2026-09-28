@@ -1,7 +1,7 @@
 import { openDb, getMeta, setMeta, q } from './db/index.js';
 import { record } from './journal.js';
 import { setJournalTill, applyPending } from './journal.js';
-import { loadProducts, loadEvents, eventStats, eventStock } from './data.js';
+import { loadProducts, loadEvents, loadBrands, eventStats, eventStock } from './data.js';
 import { setSoundEnabled } from './sound.js';
 
 // Stato condiviso dell'app. Le proprietà sono "reattive": quando cambiano,
@@ -16,6 +16,7 @@ export const app = $state({
   // Impostazioni dell'attività, uguali su tutte le casse
   shop: { name: '', logo: '', logoTop: true, logoIdle: true },
   products: [],
+  brands: [],
   events: [],
   currentEventId: null,
   stats: { sales: 0, gifts: 0, total: 0 },
@@ -41,6 +42,13 @@ export async function reloadProducts() {
   app.products = await loadProducts();
   codeIndex = new Map(app.products.filter((p) => p.code).map((p) => [p.code, p]));
 }
+
+export async function reloadBrands() {
+  app.brands = await loadBrands();
+}
+
+/** Nome del marchio, oppure "Senza marchio". */
+export const brandName = (id) => (id && app.brands.find((b) => b.id === id)?.name) || 'Senza marchio';
 
 export async function reloadEvents() {
   app.events = await loadEvents();
@@ -124,6 +132,7 @@ export async function init() {
     await loadShop();
     setSoundEnabled(app.sound);
     applyAccent();
+    await reloadBrands();
     await reloadProducts();
     await reloadEvents();
     app.currentEventId = (await getMeta('current_event_id', '')) || null;

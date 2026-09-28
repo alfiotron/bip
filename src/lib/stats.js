@@ -58,10 +58,16 @@ export async function eventStatistics(eventId, day = null) {
     total_cents: Number(s.total_cents),
     day: dayKey(s.at)
   }));
-  const lines = await q('SELECT sl.* FROM sale_lines sl JOIN sales s ON s.id = sl.sale_id WHERE s.event_id = ?', [eventId]);
+  // Il marchio è quello registrato con la vendita; per le vendite precedenti ai marchi si usa quello attuale del prodotto
+  const lines = await q(
+    `SELECT sl.*, COALESCE(sl.brand_id, p.brand_id) AS brand
+     FROM sale_lines sl JOIN sales s ON s.id = sl.sale_id LEFT JOIN products p ON p.id = sl.product_id
+     WHERE s.event_id = ?`,
+    [eventId]
+  );
   const bySale = {};
   for (const l of lines) {
-    (bySale[l.sale_id] = bySale[l.sale_id] || []).push({ ...l, qty: Number(l.qty), unit_cents: Number(l.unit_cents), vat_rate: Number(l.vat_rate) });
+    (bySale[l.sale_id] = bySale[l.sale_id] || []).push({ ...l, qty: Number(l.qty), unit_cents: Number(l.unit_cents), vat_rate: Number(l.vat_rate), brand: l.brand || null });
   }
 
   const days = [...new Set(sales.map((s) => s.day))].sort();
@@ -73,7 +79,7 @@ export async function eventStatistics(eventId, day = null) {
   for (const s of sales) {
     for (const l of bySale[s.id] || []) {
       const key = l.product_id || 'free:' + l.name;
-      const o = (products[key] = products[key] || { key, product_id: l.product_id, name: l.name, code: l.code, unit_cents: l.unit_cents, sold: 0, gifts: 0, days: {} });
+      const o = (products[key] = products[key] || { key, product_id: l.product_id, brand: l.brand || null, name: l.name, code: l.code, unit_cents: l.unit_cents, sold: 0, gifts: 0, days: {} });
       const d = (o.days[s.day] = o.days[s.day] || { sold: 0, gifts: 0 });
       if (s.method === 'gift') d.gifts += l.qty;
       else d.sold += l.qty;
@@ -91,8 +97,23 @@ export async function eventStatistics(eventId, day = null) {
     [eventId, eventId]
   );
 
+  // Per marchio: pezzi, valore a prezzo pieno e incassato. L'incasso di ogni vendita è ripartito
+  // tra le righe in proporzione al loro valore, quindi sconti e arrotondamenti pesano su ciascun marchio in proporzione.
+  const brands = {};
+  for (const s of selected) {
+    const ls = bySale[s.id] || [];
+    const alloc = allocate(ls, s.method === 'gift' ? 0 : s.total_cents);
+    ls.forEach((l, i) => {
+      const k = l.brand || '';
+      const o = (brands[k] = brands[k] || { brand: l.brand || null, sold: 0, gifts: 0, list: 0, income: 0 });
+      if (s.method === 'gift') o.gifts += l.qty;
+      else { o.sold += l.qty; o.list += l.unit_cents * l.qty; o.income += alloc[i]; }
+    });
+  }
+
   return {
     ...summarize(selected, bySale),
+    brands: Object.values(brands).sort((a, b) => b.income - a.income || b.sold - a.sold),
     day,
     days,
     byDay,
@@ -100,6 +121,20 @@ export async function eventStatistics(eventId, day = null) {
     products: Object.values(products),
     sales: selected.map((s) => ({ ...s, pieces: (bySale[s.id] || []).reduce((t, l) => t + l.qty, 0), lines: bySale[s.id] || [] }))
   };
+}
+
+/** Ripartisce un importo tra le righe in proporzione al loro valore; il resto degli arrotondamenti va all'ultima. */
+export function allocate(lines, total) {
+  const values = lines.map((l) => l.unit_cents * l.qty);
+  const sum = values.reduce((a, b) => a + b, 0);
+  if (!sum) return values.map(() => 0);
+  let acc = 0;
+  return values.map((v, i) => {
+    if (i === values.length - 1) return total - acc;
+    const x = Math.round((total * v) / sum);
+    acc += x;
+    return x;
+  });
 }
 
 export const delta = (a, b) => (b ? Math.round(((a - b) / b) * 100) : null);

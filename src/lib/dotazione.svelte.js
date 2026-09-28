@@ -4,6 +4,7 @@ export const dz = $state({
   selected: null, // id del prodotto aperto
   filter: 'all',
   query: '',
+  brand: '',
   importing: false, // true quando è aperta l'importazione dai DDT di Fatture in Cloud
   notice: '',
   missing: '' // codice letto ma non in catalogo

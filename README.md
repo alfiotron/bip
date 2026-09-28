@@ -104,6 +104,7 @@ src/
     stats.js              statistiche di un evento
     fic.js                richieste a Fatture in Cloud
     deletion.js           eliminazione di prodotti ed eventi
+    brands.js             marchi dei prodotti
     xlsx.js, export.js    creazione ed esportazione dei file Excel
 src-tauri/                parte Rust: apre la finestra e fornisce il database
 ```
@@ -124,5 +125,6 @@ Usa sempre `record(tipo, dati)` da `lib/journal.js`.
 - [x] Fase 2: dotazione dell'evento, DDT (rifornimenti e consegne ai negozi, rientri, riepilogo stampabile), statistiche
 - [x] Fase 3: importazione di prodotti e DDT da Fatture in Cloud
 - [x] Eliminazione di prodotti ed eventi, statistiche per giorno, andamento dei singoli prodotti, esportazione in Excel
+- [x] Logo e nome dell'attività, marchi dei prodotti con statistiche per marchio
 - [ ] Fase 4: più casse (chiavetta USB, poi rete locale)
 - [ ] Fase 5: installazione sul mini PC (schermo intero, avvio automatico)

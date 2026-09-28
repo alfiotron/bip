@@ -24,6 +24,7 @@
   let details = $state({}); // id → righe del DDT
   let imported = $state({}); // 'dn:id' → nome dell'evento in cui è già stato importato
   let createMissing = $state(true);
+  let brandId = $state('');
   let busy = $state(false);
 
   async function load(more = false) {
@@ -106,7 +107,7 @@
         if (!p && key && createMissing) {
           if (!createdBy.has(key)) {
             const pid = uuid();
-            await record('product.upsert', { id: pid, code: it.code, name: it.name || 'Prodotto ' + key, description: '', price_cents: it.price_cents, vat_rate: it.vat_rate, active: 1, alert_below: 5, fic_id: it.fic_product_id });
+            await record('product.upsert', { id: pid, code: it.code, name: it.name || 'Prodotto ' + key, description: '', price_cents: it.price_cents, vat_rate: it.vat_rate, active: 1, alert_below: 5, fic_id: it.fic_product_id, brand_id: brandId || null });
             createdBy.set(key, pid);
             created++;
           }
@@ -183,6 +184,14 @@
           <span>Aggiungi al catalogo i {missing} prodotti mancanti</span><span class="knob"></span>
         </button>
         <p class="hint" style="margin-top:0">{createMissing ? 'Vengono creati con nome, codice, prezzo e aliquota del DDT.' : 'I prodotti mancanti vengono saltati.'}</p>
+        {#if createMissing && app.brands.length}
+          <label class="sellab" style="margin-top:8px"><span>Marchio</span>
+            <select class="sel" bind:value={brandId}>
+              <option value="">Senza marchio</option>
+              {#each app.brands as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
+            </select>
+          </label>
+        {/if}
       {/if}
       {#if unknown.length}<p class="hint">Le righe senza codice e senza prodotto collegato non vengono importate.</p>{/if}
       {#if error}<p class="kerr">{error}</p>{/if}

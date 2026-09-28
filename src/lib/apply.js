@@ -3,7 +3,8 @@ import { q, x } from './db/index.js';
 // Applica una voce del journal alle tabelle. Ogni operazione è "idempotente": applicarla
 // due volte dà lo stesso risultato. È ciò che rende sicura la sincronizzazione tra casse.
 
-const PRODUCT_COLS = ['code', 'name', 'description', 'price_cents', 'vat_rate', 'active', 'alert_below', 'fic_id'];
+const PRODUCT_COLS = ['code', 'name', 'description', 'price_cents', 'vat_rate', 'active', 'alert_below', 'fic_id', 'brand_id'];
+const BRAND_COLS = ['name'];
 const EVENT_COLS = ['name', 'is_open'];
 const CLIENT_COLS = ['name', 'address', 'vat'];
 
@@ -60,6 +61,12 @@ export async function applyEntry(e) {
       return upsertLatest('events', EVENT_COLS, p, e);
     case 'client.upsert':
       return upsertLatest('clients', CLIENT_COLS, p, e);
+    case 'brand.upsert':
+      return upsertLatest('brands', BRAND_COLS, p, e);
+    case 'brand.delete':
+      await markDeleted(p.id, 'brand', e.at);
+      await x('UPDATE products SET brand_id = NULL WHERE brand_id = ?', [p.id]);
+      return x('DELETE FROM brands WHERE id = ?', [p.id]);
 
     case 'sale.create':
       await x(
@@ -70,9 +77,9 @@ export async function applyEntry(e) {
       );
       for (const l of p.lines) {
         await x(
-          `INSERT OR IGNORE INTO sale_lines (id, sale_id, product_id, code, name, unit_cents, vat_rate, qty)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [l.id, p.id, l.product_id ?? null, l.code || '', l.name, l.unit_cents, l.vat_rate, l.qty]
+          `INSERT OR IGNORE INTO sale_lines (id, sale_id, product_id, code, name, unit_cents, vat_rate, qty, brand_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [l.id, p.id, l.product_id ?? null, l.code || '', l.name, l.unit_cents, l.vat_rate, l.qty, l.brand_id ?? null]
         );
       }
       return;

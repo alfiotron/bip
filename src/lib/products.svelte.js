@@ -8,6 +8,8 @@ import { productUsage, deleteProduct } from './deletion.js';
 // Stato della scheda Prodotti (serve anche allo scanner, per aprire un prodotto leggendone il codice).
 export const pf = $state({
   query: '',
+  brand: '', // filtro dell'elenco: '' tutti, 'none' senza marchio, oppure l'id del marchio
+  view: 'products', // 'products' | 'brands'
   form: null, // { id, code, name, description, price, vat_rate, active, alert_below }
   errors: {},
   saved: '',
@@ -23,7 +25,8 @@ export function editProduct(p) {
     price: centsToInput(p.price_cents),
     vat_rate: p.vat_rate,
     active: p.active,
-    alert_below: String(p.alert_below)
+    alert_below: String(p.alert_below),
+    brand_id: p.brand_id || null
   };
   pf.errors = {};
   pf.saved = '';
@@ -31,7 +34,9 @@ export function editProduct(p) {
 }
 
 export function newProduct(code = '') {
-  pf.form = { id: null, code, name: '', description: '', price: '', vat_rate: 0, active: true, alert_below: '5' };
+  // Un nuovo prodotto eredita il marchio che si sta guardando nell'elenco
+  const brand = pf.brand && pf.brand !== 'none' ? pf.brand : null;
+  pf.form = { id: null, code, name: '', description: '', price: '', vat_rate: 0, active: true, alert_below: '5', brand_id: brand };
   pf.errors = {};
   pf.saved = '';
 }
@@ -101,7 +106,8 @@ export async function saveProduct() {
     vat_rate: f.vat_rate,
     active: f.active ? 1 : 0,
     alert_below: parseInt(f.alert_below, 10),
-    fic_id: existing ? existing.fic_id ?? null : null
+    fic_id: existing ? existing.fic_id ?? null : null,
+    brand_id: f.brand_id || null
   });
   await reloadProducts();
   pf.form = null;
