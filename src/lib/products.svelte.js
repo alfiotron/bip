@@ -10,6 +10,9 @@ export const pf = $state({
   query: '',
   brand: '', // filtro dell'elenco: '' tutti, 'none' senza marchio, oppure l'id del marchio
   view: 'products', // 'products' | 'brands'
+  selecting: false, // selezione multipla attiva
+  sel: new Set(), // prodotti selezionati
+  bulkOpen: false, // su schermo stretto: pannello "Sposta nel marchio" aperto
   form: null, // { id, code, name, description, price, vat_rate, active, alert_below }
   errors: {},
   saved: '',
@@ -72,6 +75,12 @@ export async function confirmDeleteProduct() {
 
 /** Lettura dello scanner mentre è aperta la scheda Prodotti. */
 export function productsScan(code) {
+  if (pf.selecting) {
+    // In selezione multipla lo scanner aggiunge o toglie il prodotto dalla selezione
+    const p = productByCode(code);
+    if (p) { const s = new Set(pf.sel); s.has(p.id) ? s.delete(p.id) : s.add(p.id); pf.sel = s; }
+    return;
+  }
   if (pf.form) {
     pf.form.code = code;
     pf.errors.code = '';
@@ -113,4 +122,35 @@ export async function saveProduct() {
   pf.form = null;
   pf.saved = 'Prodotto salvato';
   return true;
+}
+
+
+/** Assegna lo stesso marchio a più prodotti. */
+export async function assignBrand(ids, brandId) {
+  let moved = 0;
+  for (const id of ids) {
+    const p = app.products.find((x) => x.id === id);
+    if (!p || (p.brand_id || null) === (brandId || null)) continue;
+    await record('product.upsert', {
+      id: p.id, code: p.code || '', name: p.name, description: p.description || '', price_cents: p.price_cents,
+      vat_rate: p.vat_rate, active: p.active ? 1 : 0, alert_below: p.alert_below, fic_id: p.fic_id ?? null, brand_id: brandId || null
+    });
+    moved++;
+  }
+  await reloadProducts();
+  return moved;
+}
+
+export function startSelecting() {
+  closeForm();
+  pf.selecting = true;
+  pf.sel = new Set();
+  pf.bulkOpen = false;
+  pf.saved = '';
+}
+
+export function stopSelecting() {
+  pf.selecting = false;
+  pf.sel = new Set();
+  pf.bulkOpen = false;
 }

@@ -561,3 +561,13 @@ select.sel{height:46px;border-radius:10px;border:1px solid var(--line);backgroun
 .mapgrid select.sel{flex:1;max-width:170px}
 select.sel.bad{border-color:var(--err)}
 .importbrand h3{margin-bottom:14px}
+
+/* Selezione multipla dei prodotti */
+.searchrow{display:flex;gap:10px;align-items:flex-start}
+.searchrow .psearch{flex:1}
+.selbtn{height:52px;flex-shrink:0}
+.selbtn.on{border-color:var(--acc);color:var(--acc-ink);background:var(--acc-soft)}
+.selbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:-4px 0 8px;padding:6px 10px;border-radius:10px;background:var(--acc-soft)}
+.selbar .solid.sm{height:40px;margin-left:auto}
+.mobonly{display:none!important}
+@media (max-width:900px){ .mobonly{display:inline-flex!important} .selbtn span{display:none} }

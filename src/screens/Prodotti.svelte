@@ -9,7 +9,8 @@
   import ExcelImport from './prodotti/ExcelImport.svelte';
   import BrandPicker from '../components/BrandPicker.svelte';
   import { app, brandName } from '../lib/state.svelte.js';
-  import { pf, editProduct, newProduct, closeForm, saveProduct, askDeleteProduct, confirmDeleteProduct } from '../lib/products.svelte.js';
+  import { pf, editProduct, newProduct, closeForm, saveProduct, askDeleteProduct, confirmDeleteProduct, startSelecting, stopSelecting } from '../lib/products.svelte.js';
+  import BulkBrand from './prodotti/BulkBrand.svelte';
   import { eur } from '../lib/money.js';
   import { codeLabel } from '../lib/codes.js';
 
@@ -31,7 +32,20 @@
     busy = false;
     if (!ok) revealFirstError(document.querySelector('.split > .r'));
   }
+  function toggleSel(p) {
+    const s = new Set(pf.sel);
+    s.has(p.id) ? s.delete(p.id) : s.add(p.id);
+    pf.sel = s;
+  }
+  const allShown = $derived(list.length > 0 && list.every((p) => pf.sel.has(p.id)));
+  function selectShown() {
+    const s = new Set(pf.sel);
+    if (allShown) list.forEach((p) => s.delete(p.id));
+    else list.forEach((p) => s.add(p.id));
+    pf.sel = s;
+  }
   function open(p) {
+    if (pf.selecting) { toggleSel(p); return; }
     editProduct(p);
     if (matchMedia('(max-width:900px)').matches) scrollTo(0, 0);
   }
@@ -68,7 +82,7 @@
       <BrandsManager />
     </div>
   {:else}
-  <div class="split" class:has-sel={pf.form}>
+  <div class="split" class:has-sel={pf.form || (pf.selecting && pf.bulkOpen)}>
     <div class="l">
       <div class="stoolbar">
         <div class="seg tabs2" role="tablist">
@@ -87,12 +101,30 @@
           </div>
         {/if}
       </div>
-      <div class="psearch"><Icon name="search" /><input class="field" placeholder="Cerca per nome, descrizione o codice" bind:value={pf.query} /></div>
+      <div class="searchrow">
+        <div class="psearch"><Icon name="search" /><input class="field" placeholder="Cerca per nome, descrizione o codice" bind:value={pf.query} /></div>
+        {#if app.products.length}
+          <button type="button" class="outline selbtn" class:on={pf.selecting} onclick={() => (pf.selecting ? stopSelecting() : startSelecting())}>
+            <Icon name={pf.selecting ? 'close' : 'checklist'} /><span>{pf.selecting ? 'Fine' : 'Seleziona'}</span>
+          </button>
+        {/if}
+      </div>
+      {#if pf.selecting && list.length}
+        <div class="selbar">
+          <button type="button" class="linkb" onclick={selectShown}>{allShown ? 'Deseleziona i prodotti mostrati' : `Seleziona tutti i ${list.length} mostrati`}</button>
+          <span class="hint" style="margin:0">{pf.sel.size} {pf.sel.size === 1 ? 'selezionato' : 'selezionati'}</span>
+          {#if pf.sel.size}<button type="button" class="solid sm mobonly" onclick={() => { pf.bulkOpen = true; scrollTo(0, 0); }}>Sposta nel marchio</button>{/if}
+        </div>
+      {/if}
       {#if list.length}
         <div class="pgrid phrow"><span></span><span>Prodotto</span><span>Codice</span><span>IVA</span><span class="r-al">Stato</span><span class="r-al">Prezzo</span><span></span></div>
         {#each list as p (p.id)}
-          <button type="button" class="pgrid prow" class:sel={pf.form && pf.form.id === p.id} onclick={() => open(p)}>
-            <Cover item={p} />
+          <button type="button" class="pgrid prow" class:sel={(pf.form && pf.form.id === p.id) || (pf.selecting && pf.sel.has(p.id))} aria-pressed={pf.selecting ? pf.sel.has(p.id) : undefined} onclick={() => open(p)}>
+            {#if pf.selecting}
+              <span class="ck" class:on={pf.sel.has(p.id)}><Icon name={pf.sel.has(p.id) ? 'check_box' : 'check_box_outline_blank'} fill={pf.sel.has(p.id)} /></span>
+            {:else}
+              <Cover item={p} />
+            {/if}
             <span style="min-width:0">
               <span class="rt">{p.name}</span>
               <span class="ra">{[app.brands.length && p.brand_id ? brandName(p.brand_id) : '', p.description].filter(Boolean).join(', ')}</span>
@@ -114,7 +146,9 @@
     </div>
 
     <div class="r">
-      {#if pf.form}
+      {#if pf.selecting}
+        <BulkBrand />
+      {:else if pf.form}
         {@const f = pf.form}
         <button type="button" class="back mback" onclick={closeForm}><Icon name="arrow_back" /><span>Tutti i prodotti</span></button>
         <h2 class="fh">{f.id ? 'Modifica prodotto' : 'Nuovo prodotto'}</h2>
