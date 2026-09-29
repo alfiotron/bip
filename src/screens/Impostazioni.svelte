@@ -4,6 +4,7 @@
   import AdminHeader from '../components/AdminHeader.svelte';
   import FicSettings from './impostazioni/FicSettings.svelte';
   import ShopSettings from './impostazioni/ShopSettings.svelte';
+  import MailSettings from './impostazioni/MailSettings.svelte';
   import { app, saveSetting, reloadProducts, reloadEvents, setCurrentEvent } from '../lib/state.svelte.js';
   import { isTauri, resetDevDb } from '../lib/db/index.js';
   import { loadDemoData, hasDemoData, removeDemoData } from '../lib/demo.js';
@@ -63,6 +64,10 @@
       </div>
 
       <ShopSettings />
+
+      {#if app.till.role === 'principal'}
+        <MailSettings />
+      {/if}
 
       {#if app.till.role === 'principal'}
         <FicSettings />

@@ -188,10 +188,24 @@ export async function confirmPay() {
     return;
   }
   const giftTo = pos.pay.giftTo;
+  const snapshot = { lines: pos.lines.map((l) => ({ ...l })), discount: { ...pos.discount } };
   clearSale();
   await refreshEventData();
-  if (gift) showToast('ok', 'Omaggio registrato' + (giftTo ? ' per ' + giftTo.toLowerCase() : ''), { sound: 'pay' });
-  else showToast('ok', 'Pagamento registrato: ' + eur(due), { sound: 'pay' });
+  // Per qualche secondo si può tornare indietro: la vendita viene annullata e i prodotti tornano nel carrello
+  const undo = {
+    label: 'Annulla e riporta nel carrello',
+    run: async () => {
+      const { voidSale } = await import('./salesOps.js');
+      await voidSale(sale.id, 'Errore di cassa');
+      pos.lines = snapshot.lines;
+      pos.discount = snapshot.discount;
+      pos.view = 'cart';
+      pos.panel = 'cart';
+      showToast('warn', gift ? 'Omaggio annullato' : 'Vendita annullata', { detail: 'I prodotti sono di nuovo nel carrello.', ms: 3000 });
+    }
+  };
+  if (gift) showToast('ok', 'Omaggio registrato' + (giftTo ? ' per ' + giftTo.toLowerCase() : ''), { sound: 'pay', ms: 8000, action: undo });
+  else showToast('ok', 'Pagamento registrato: ' + eur(due), { sound: 'pay', ms: 8000, action: undo });
   setStatus('ok', 'Vendita registrata', 2400);
 }
 

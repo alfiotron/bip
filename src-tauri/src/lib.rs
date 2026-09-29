@@ -1,6 +1,7 @@
 // Il "contenitore" dell'app: apre la finestra e registra i plugin.
 // Tutta la logica della cassa è scritta in JavaScript, nella cartella src/.
 
+mod mail;
 mod sync;
 
 /// Scrive un file nel percorso scelto dall'utente con la finestra "Salva con nome"
@@ -28,7 +29,8 @@ pub fn run() {
             sync::bip_respond,
             sync::bip_discover,
             sync::bip_local_ips,
-            sync::bip_request
+            sync::bip_request,
+            mail::bip_send_email
         ])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio della cassa");

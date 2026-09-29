@@ -54,14 +54,16 @@ function summarize(sales, bySale) {
  * l'andamento per giorno e l'elenco dei giorni restano sempre riferiti a tutto l'evento.
  */
 export async function eventStatistics(eventId, day = null) {
-  const sales = (await q('SELECT * FROM sales WHERE event_id = ? ORDER BY at', [eventId])).map((s) => ({
+  const all = (await q('SELECT * FROM sales WHERE event_id = ? ORDER BY at', [eventId])).map((s) => ({
     ...s,
     subtotal_cents: Number(s.subtotal_cents),
     discount_cents: Number(s.discount_cents),
     rounding_cents: Number(s.rounding_cents),
     total_cents: Number(s.total_cents),
+    voided: !!s.voided,
     day: dayKey(s.at)
   }));
+  const sales = all.filter((s) => !s.voided);
   // Il marchio è quello registrato con la vendita; per le vendite precedenti ai marchi si usa quello attuale del prodotto
   const lines = await q(
     `SELECT sl.*, COALESCE(sl.brand_id, p.brand_id) AS brand
@@ -125,7 +127,9 @@ export async function eventStatistics(eventId, day = null) {
     byDay,
     ddt: { out: Number(ddt[0].out_n), back: Number(ddt[0].back_n) },
     products: Object.values(products).map((o) => ({ ...o, discountPct: o.list ? (o.list - o.income) / o.list : 0 })),
-    sales: selected.map((s) => ({ ...s, pieces: (bySale[s.id] || []).reduce((t, l) => t + l.qty, 0), lines: bySale[s.id] || [] }))
+    sales: selected.map((s) => ({ ...s, pieces: (bySale[s.id] || []).reduce((t, l) => t + l.qty, 0), lines: bySale[s.id] || [] })),
+    // Tutte le vendite, annullate comprese, per l'elenco delle vendite
+    allSales: all.filter((s) => !day || s.day === day).map((s) => ({ ...s, pieces: (bySale[s.id] || []).reduce((t, l) => t + l.qty, 0), lines: bySale[s.id] || [] }))
   };
 }
 

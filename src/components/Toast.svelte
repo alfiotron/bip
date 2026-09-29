@@ -15,7 +15,7 @@
       {#if t.action}
         <div class="ta">
           <button type="button" onclick={() => { const run = t.action.run; hideToast(); run(); }}>{t.action.label}</button>
-          <button type="button" onclick={hideToast}>Ok</button>
+          {#if t.kind !== 'ok'}<button type="button" onclick={hideToast}>Ok</button>{/if}
         </div>
       {/if}
     </div>

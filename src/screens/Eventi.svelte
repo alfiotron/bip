@@ -9,6 +9,7 @@
   import { q } from '../lib/db/index.js';
   import { eur } from '../lib/money.js';
   import { eventUsage, deleteEvent } from '../lib/deletion.js';
+  import { resetEventSales } from '../lib/salesOps.js';
 
   let newName = $state('');
   let newErr = $state('');
@@ -16,6 +17,7 @@
   let note = $state(null); // { id, text }
   let stats = $state({});
   let confirmDelete = $state(null); // { id, text }
+  let confirmReset = $state(null); // id dell'evento di cui azzerare le vendite
 
   const open = $derived(app.events.filter((e) => e.is_open));
   const closed = $derived(app.events.filter((e) => !e.is_open));
@@ -26,7 +28,7 @@
          SUM(CASE WHEN method <> 'gift' THEN 1 ELSE 0 END) AS sales,
          SUM(CASE WHEN method = 'gift' THEN 1 ELSE 0 END) AS gifts,
          COALESCE(SUM(total_cents), 0) AS total
-       FROM sales GROUP BY event_id`
+       FROM sales WHERE voided = 0 GROUP BY event_id`
     );
     stats = Object.fromEntries(rows.map((r) => [r.event_id, { sales: Number(r.sales), gifts: Number(r.gifts), total: Number(r.total) }]));
   }
@@ -108,8 +110,16 @@
           </div>
           <div class="eacts">
             {#if e.id !== app.currentEventId}<button type="button" onclick={() => setCurrentEvent(e.id)}>Usa in cassa</button>{/if}
+            {#if s.sales || s.gifts}<button type="button" class="danger" onclick={() => { confirmClose = null; confirmReset = e.id; }}>Azzera vendite</button>{/if}
             <button type="button" class="danger" onclick={() => askClose(e)}>Chiudi</button>
           </div>
+          {#if confirmReset === e.id}
+            <div class="confirmbox" use:reveal>
+              <p>Azzerare le vendite di "{e.name}"? Verranno cancellate definitivamente {s.sales === 1 ? '1 vendita' : s.sales + ' vendite'}{s.gifts ? ` e ${s.gifts === 1 ? '1 omaggio' : s.gifts + ' omaggi'}` : ''} ({eur(s.total)}), su tutte le casse. Evento, dotazione e DDT restano. Serve per esempio a togliere le vendite di prova prima della fiera.</p>
+              <button type="button" onclick={() => (confirmReset = null)}>Annulla</button>
+              <button type="button" class="go" onclick={async () => { confirmReset = null; await resetEventSales(e.id); await loadStats(); }}>Azzera vendite</button>
+            </div>
+          {/if}
           {#if note && note.id === e.id}
             <div class="confirmbox info" use:reveal><p>{note.text}</p><button type="button" onclick={() => (note = null)}>Ho capito</button></div>
           {:else if confirmClose === e.id}

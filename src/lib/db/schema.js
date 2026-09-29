@@ -185,6 +185,14 @@ export const MIGRATIONS = [
       last_seen TEXT,
       last_ip TEXT
     )`
+  ],
+
+  // 6: vendite annullate. Una vendita annullata resta registrata (per trasparenza) ma non
+  // conta più nell'incasso, nelle statistiche e nella dotazione.
+  [
+    `ALTER TABLE sales ADD COLUMN voided INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE sales ADD COLUMN voided_at TEXT`,
+    `ALTER TABLE sales ADD COLUMN void_reason TEXT`
   ]
 ];
 

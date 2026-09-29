@@ -24,6 +24,8 @@ tiny_http = "0.12"
 mdns-sd = "0.21"
 if-addrs = "0.15"
 ureq = "2"
+# Invio del report via email (TLS senza OpenSSL, così compila uguale su Windows e macOS)
+lettre = { version = "0.11", default-features = false, features = ["smtp-transport", "builder", "hostname", "rustls-tls"] }
 serde_json = "1"
 
 [profile.release]

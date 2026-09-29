@@ -74,7 +74,10 @@ export async function applyEntry(e) {
       await x('UPDATE products SET brand_id = NULL WHERE brand_id = ?', [p.id]);
       return x('DELETE FROM brands WHERE id = ?', [p.id]);
 
-    case 'sale.create':
+    case 'sale.create': {
+      // Vendite azzerate: se l'evento è stato azzerato dopo questa vendita, la vendita non si registra
+      const reset = await q(`SELECT at FROM deleted WHERE id = ? AND kind = 'sales_reset'`, ['reset:' + p.event_id]);
+      if (reset.length && reset[0].at >= e.at) return;
       await x(
         `INSERT OR IGNORE INTO sales (id, origin, event_id, at, method, subtotal_cents, discount_kind, discount_value,
           discount_cents, rounding_cents, total_cents, gift_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -88,7 +91,25 @@ export async function applyEntry(e) {
           [l.id, p.id, l.product_id ?? null, l.code || '', l.name, l.unit_cents, l.vat_rate, l.qty, l.brand_id ?? null]
         );
       }
+      // Annullamento arrivato prima della vendita (da un'altra cassa): la vendita nasce già annullata
+      const v = await q(`SELECT at FROM deleted WHERE id = ? AND kind = 'sale_void'`, [p.id]);
+      if (v.length) await x('UPDATE sales SET voided = 1, voided_at = ? WHERE id = ?', [v[0].at, p.id]);
       return;
+    }
+
+    case 'sale.void':
+      await x(`INSERT OR IGNORE INTO deleted (id, kind, at) VALUES (?, 'sale_void', ?)`, [p.sale_id, e.at]);
+      return x('UPDATE sales SET voided = 1, voided_at = ?, void_reason = ? WHERE id = ? AND voided = 0', [e.at, p.reason || null, p.sale_id]);
+
+    case 'event.sales.reset': {
+      // Azzera le vendite di un evento registrate fino a questo momento, su tutte le casse
+      await x(
+        `INSERT INTO deleted (id, kind, at) VALUES (?, 'sales_reset', ?) ON CONFLICT(id) DO UPDATE SET at = MAX(at, excluded.at)`,
+        ['reset:' + p.event_id, e.at]
+      );
+      await x('DELETE FROM sale_lines WHERE sale_id IN (SELECT id FROM sales WHERE event_id = ? AND at <= ?)', [p.event_id, e.at]);
+      return x('DELETE FROM sales WHERE event_id = ? AND at <= ?', [p.event_id, e.at]);
+    }
 
     case 'stock.move':
       return x(

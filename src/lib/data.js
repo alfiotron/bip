@@ -23,7 +23,7 @@ export async function eventStats(eventId) {
        SUM(CASE WHEN method <> 'gift' THEN 1 ELSE 0 END) AS sales,
        SUM(CASE WHEN method = 'gift' THEN 1 ELSE 0 END) AS gifts,
        COALESCE(SUM(total_cents), 0) AS total
-     FROM sales WHERE event_id = ?`,
+     FROM sales WHERE event_id = ? AND voided = 0`,
     [eventId]
   );
   const r = rows[0] || {};
@@ -74,7 +74,7 @@ export async function eventStock(eventId) {
   const sold = await q(
     `SELECT sl.product_id, SUM(sl.qty) AS q
      FROM sale_lines sl JOIN sales s ON s.id = sl.sale_id
-     WHERE s.event_id = ? AND sl.product_id IS NOT NULL
+     WHERE s.event_id = ? AND s.voided = 0 AND sl.product_id IS NOT NULL
      GROUP BY sl.product_id`,
     [eventId]
   );

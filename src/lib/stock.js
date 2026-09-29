@@ -30,7 +30,7 @@ export async function eventSummary(eventId) {
   }
   for (const s of await q(
     `SELECT sl.product_id, s.method, SUM(sl.qty) AS n FROM sale_lines sl JOIN sales s ON s.id = sl.sale_id
-     WHERE s.event_id = ? AND sl.product_id IS NOT NULL GROUP BY sl.product_id, s.method`, [eventId])) {
+     WHERE s.event_id = ? AND s.voided = 0 AND sl.product_id IS NOT NULL GROUP BY sl.product_id, s.method`, [eventId])) {
     if (s.method === 'gift') get(s.product_id).gifts += Number(s.n);
     else get(s.product_id).sold += Number(s.n);
   }
@@ -61,7 +61,7 @@ export async function productHistory(eventId, productId) {
   }
   const sold = await q(
     `SELECT s.method, SUM(sl.qty) AS n FROM sale_lines sl JOIN sales s ON s.id = sl.sale_id
-     WHERE s.event_id = ? AND sl.product_id = ? GROUP BY s.method`, [eventId, productId]);
+     WHERE s.event_id = ? AND s.voided = 0 AND sl.product_id = ? GROUP BY s.method`, [eventId, productId]);
   rows.sort((a, b) => (a.at < b.at ? 1 : -1));
   const soldN = sold.filter((s) => s.method !== 'gift').reduce((t, s) => t + Number(s.n), 0);
   const giftN = sold.filter((s) => s.method === 'gift').reduce((t, s) => t + Number(s.n), 0);

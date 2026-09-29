@@ -3,6 +3,8 @@
   import Cover from '../components/Cover.svelte';
   import BarChart from '../components/BarChart.svelte';
   import AdminHeader from '../components/AdminHeader.svelte';
+  import SalesList from './statistiche/SalesList.svelte';
+  import ReportMail from './statistiche/ReportMail.svelte';
   import { app, currentEvent, productById, brandName } from '../lib/state.svelte.js';
   import { eventStatistics, delta, dayLabel, dayLabelLong, pct } from '../lib/stats.js';
   import { eventSummary } from '../lib/stock.js';
@@ -22,6 +24,7 @@
   let sort = $state('q');
   let picked = $state(null); // prodotto di cui mostrare l'andamento
   let exporting = $state(false);
+  let mailing = $state(false);
   let brand = $state(''); // filtro dell'elenco prodotti: '' tutti, 'none' senza marchio, oppure l'id
 
   const events = $derived([...app.events].sort((x, y) => y.is_open - x.is_open));
@@ -122,6 +125,9 @@
   <AdminHeader>
     {#snippet actions()}
       {#if ev}
+        {#if app.till.role === 'principal'}
+          <button type="button" class="outline sm" onclick={() => (mailing = !mailing)}><Icon name="send" /><span>Invia<span class="long">{" "}report</span></span></button>
+        {/if}
         <button type="button" class="outline sm" disabled={exporting} onclick={doExport}><Icon name="download" /><span>Esporta<span class="long">{" "}in Excel</span></span></button>
       {/if}
     {/snippet}
@@ -131,9 +137,10 @@
       <div class="empty" style="min-height:320px"><Icon name="bar_chart" /><h2>Nessun evento</h2><p>Le statistiche compariranno qui dopo le prime vendite.</p></div>
     {:else}
       <div class="stoolbar">
-        <div class="seg tabs2" role="tablist">
+        <div class="seg tabs3" role="tablist">
           <button type="button" role="tab" aria-selected={tab === 'sum'} class:on={tab === 'sum'} onclick={() => (tab = 'sum')}>Riepilogo</button>
           <button type="button" role="tab" aria-selected={tab === 'prod'} class:on={tab === 'prod'} onclick={() => (tab = 'prod')}>Prodotti</button>
+          <button type="button" role="tab" aria-selected={tab === 'sales'} class:on={tab === 'sales'} onclick={() => (tab = 'sales')}>Vendite</button>
         </div>
         <div class="aright">
           <label class="sellab"><span>Evento</span>
@@ -160,6 +167,10 @@
           {/if}
         </div>
       </div>
+
+      {#if mailing && ev}
+        <ReportMail event={ev} {day} onclose={() => (mailing = false)} />
+      {/if}
 
       {#if a && a.days.length > 1}
         <div class="daybar" role="group" aria-label="Giorno">
@@ -296,6 +307,8 @@
             </div>
           </div>
         {/if}
+      {:else if a && tab === 'sales'}
+        <SalesList sales={a.allSales} {tillName} {dayLabel} />
       {:else if a}
         {#if pick}
           <div class="panel pickpanel">
