@@ -4,7 +4,7 @@
   import BarChart from '../components/BarChart.svelte';
   import AdminHeader from '../components/AdminHeader.svelte';
   import { app, currentEvent, productById, brandName } from '../lib/state.svelte.js';
-  import { eventStatistics, delta, dayLabel, dayLabelLong } from '../lib/stats.js';
+  import { eventStatistics, delta, dayLabel, dayLabelLong, pct } from '../lib/stats.js';
   import { eventSummary } from '../lib/stock.js';
   import { exportEvent } from '../lib/export.js';
   import { showToast } from '../lib/ui.svelte.js';
@@ -185,6 +185,16 @@
           {@render kpi('Vendite', a.count, b?.count, (x) => x)}
           {@render kpi('Pezzi venduti', a.pieces, b?.pieces, (x) => x)}
           {@render kpi('Scontrino medio', a.average, b?.average, eur)}
+          <div class="panel">
+            <span class="tl">Sconto medio sul prezzo pieno</span>
+            <div class="kv num">{pct(a.discountPct)}</div>
+            {#if cmp && b}
+              {@const pts = Math.round((a.discountPct - b.discountPct) * 1000) / 10}
+              <div class="kc num">{cmp.name}: {pct(b.discountPct)} {#if pts}<span class={pts <= 0 ? 'up' : 'down'}>{pts > 0 ? '+' : '−'}{Math.abs(pts).toLocaleString('it-IT')} punti</span>{/if}</div>
+            {:else}
+              <div class="kc num">{eur(a.income)} incassati su {eur(a.list)} a prezzo pieno</div>
+            {/if}
+          </div>
         </div>
 
         {#if !a.count && !a.gifts.count}
@@ -230,18 +240,18 @@
             <div class="panel" style="margin-top:12px">
               <h3>Per marchio</h3>
               <div class="tscroll">
-                <table class="tbl" style="min-width:560px">
-                  <thead><tr><th>Marchio</th><th class="r">Venduti</th><th class="r">Omaggi</th><th class="r">A prezzo pieno</th><th class="r">Incassato</th></tr></thead>
+                <table class="tbl" style="min-width:640px">
+                  <thead><tr><th>Marchio</th><th class="r">Venduti</th><th class="r">Omaggi</th><th class="r">A prezzo pieno</th><th class="r">Incassato</th><th class="r">Sconto</th></tr></thead>
                   <tbody>
                     {#each a.brands as x (x.brand || '')}
                       <tr class="clickrow" onclick={() => { brand = x.brand || 'none'; tab = 'prod'; }}>
                         <td>{brandName(x.brand)}</td><td class="r num">{x.sold}</td><td class="r num">{x.gifts || '—'}</td>
-                        <td class="r num">{eur(x.list)}</td><td class="r num"><strong>{eur(x.income)}</strong></td>
+                        <td class="r num">{eur(x.list)}</td><td class="r num"><strong>{eur(x.income)}</strong></td><td class="r num">{x.list ? pct(x.discountPct) : '—'}</td>
                       </tr>
                     {/each}
                   </tbody>
                   <tfoot><tr><td>Totale</td><td class="r num">{a.brands.reduce((t, x) => t + x.sold, 0)}</td><td class="r num">{a.brands.reduce((t, x) => t + x.gifts, 0)}</td>
-                    <td class="r num">{eur(a.brands.reduce((t, x) => t + x.list, 0))}</td><td class="r num">{eur(a.brands.reduce((t, x) => t + x.income, 0))}</td></tr></tfoot>
+                    <td class="r num">{eur(a.brands.reduce((t, x) => t + x.list, 0))}</td><td class="r num">{eur(a.brands.reduce((t, x) => t + x.income, 0))}</td><td class="r num">{pct(a.discountPct)}</td></tr></tfoot>
                 </table>
               </div>
               <p class="hint" style="margin:10px 0 0">"Incassato" tiene conto di sconti e arrotondamenti, ripartiti tra i prodotti di ogni vendita in proporzione al loro prezzo. Tocca un marchio per vederne i prodotti.</p>
@@ -264,8 +274,9 @@
             <div class="stack">
               <div class="panel">
                 <h3>Sconti, omaggi e DDT</h3>
-                <div class="kvrow"><span>Sconti concessi</span><span class="num">{eur(a.discounts)}</span></div>
-                <div class="kvrow"><span>Arrotondamenti</span><span class="num">{eur(a.rounding)}</span></div>
+                <div class="kvrow"><span>Copie vendute a prezzo pieno</span><span class="num">{eur(a.list)}</span></div>
+                <div class="kvrow"><span>Incassato</span><span class="num">{eur(a.income)}</span></div>
+                <div class="kvrow"><span>Differenza<small>sconti {eur(a.discounts)}, arrotondamenti {eur(a.rounding)}</small></span><span class="num"><strong>{eur(a.list - a.income)}, {pct(a.discountPct)}</strong></span></div>
                 <div class="kvrow"><span>Omaggi</span><span class="num">{a.gifts.count} ({a.gifts.pieces} {a.gifts.pieces === 1 ? 'pezzo' : 'pezzi'})</span></div>
                 <div class="kvrow"><span>Valore di listino degli omaggi</span><span class="num">{eur(a.gifts.value)}</span></div>
                 {#if !day && a.ddt.out}<div class="kvrow"><span>Consegnati a negozi con DDT</span><span class="num">{a.ddt.out} pezzi{a.ddt.back ? `, ${a.ddt.back} rientrati` : ''}</span></div>{/if}
@@ -298,7 +309,11 @@
               <div><span class="tl">Omaggi</span><strong>{pick.gifts}</strong></div>
               {#if pick.loaded !== null && pick.loaded}<div><span class="tl">Portati</span><strong>{pick.loaded}</strong></div>{/if}
               {#if pick.left !== null}<div><span class="tl">Rimasti</span><strong class={pick.left <= 0 ? 'down' : ''}>{pick.left}</strong></div>{/if}
+              {#if pick.list}<div><span class="tl">Sconto medio</span><strong>{pct(pick.discountPct)}</strong></div>{/if}
             </div>
+            {#if pick.list}
+              <p class="hint">{pick.sold} copie a prezzo pieno valgono {eur(pick.list)}; ne sono stati incassati {eur(pick.income)}. Gli sconti fatti su tutto lo scontrino sono ripartiti tra i prodotti in proporzione al prezzo.</p>
+            {/if}
             <h3 style="margin:18px 0 6px">Andamento giorno per giorno</h3>
             {#if pickHasGifts}<div class="legend"><span><i></i>Venduti</span><span><i class="b"></i>Omaggi</span></div>{/if}
             <BarChart bars={pickBars} showB={pickHasGifts} ariaLabel="Pezzi venduti per giorno" onpick={(k) => (day = day === k ? null : k)} picked={day} />
@@ -320,6 +335,7 @@
                   {#if !day}<th class="r">Portati</th>{/if}
                   <th class="r"><button type="button" class="sortb" class:on={sort === 'q'} onclick={() => (sort = 'q')}>Venduti{#if sort === 'q'}<Icon name="arrow_downward" />{/if}</button></th>
                   <th class="r">Omaggi</th>
+                  <th class="r">Sconto</th>
                   {#if !day}
                     <th class="r">DDT</th>
                     <th class="r"><button type="button" class="sortb" class:on={sort === 'r'} onclick={() => (sort = 'r')}>Rimasti{#if sort === 'r'}<Icon name="arrow_upward" />{/if}</button></th>
@@ -334,6 +350,7 @@
                       {#if !day}<td class="r num">{r.loaded || '—'}</td>{/if}
                       <td class="r num"><strong>{r.sold}</strong></td>
                       <td class="r num">{r.gifts || '—'}</td>
+                      <td class="r num">{r.list ? pct(r.discountPct) : '—'}</td>
                       {#if !day}
                         <td class="r num">{r.ddt || '—'}</td>
                         <td class="r num">{#if r.left === null}—{:else}<span class="pstock {r.left <= 0 ? 'bad' : r.left <= r.alert ? 'warn' : ''}">{r.left}</span>{/if}</td>
@@ -345,6 +362,7 @@
                   <td>{rows.length === allRows.length ? `${rows.length} prodotti` : `${rows.length} di ${allRows.length} prodotti`}</td><td></td><td></td>
                   {#if !day}<td class="r num">{sumOf((r) => r.loaded)}</td>{/if}
                   <td class="r num">{sumOf((r) => r.sold)}</td><td class="r num">{sumOf((r) => r.gifts)}</td>
+                  <td class="r num">{sumOf((r) => r.list) ? pct(1 - sumOf((r) => r.income) / sumOf((r) => r.list)) : '—'}</td>
                   {#if !day}<td class="r num">{sumOf((r) => r.ddt)}</td><td class="r num">{sumOf((r) => r.left)}</td>{/if}
                 </tr></tfoot>
               </table>

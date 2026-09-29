@@ -71,6 +71,20 @@ incolla una volta in Impostazioni e resta solo su quella cassa.
 Nel browser di sviluppo (`npm run dev`) Fatture in Cloud è simulato con dati di prova
 (`src/lib/fic-mock.js`): qualunque token di almeno 6 caratteri viene accettato.
 
+## Più casse
+
+Al primo avvio Bip chiede se è la **cassa principale** o se deve **collegarsi a una principale**.
+Le secondarie trovano la principale da sole sulla stessa rete (router dello stand o hotspot, internet non serve),
+oppure con il suo indirizzo IP, e si abbinano con un codice di 6 cifre mostrato dalla principale nella scheda **Casse**.
+Da lì si sincronizzano da sole ogni pochi secondi.
+
+La parte di rete in Rust (`src-tauri/src/sync.rs`) fa solo da trasporto: server HTTP sulla porta 47800,
+ricerca automatica (mDNS, servizio `_bip._tcp`) e richieste verso la principale. Le regole della
+sincronizzazione sono in `src/lib/sync/`.
+
+Nel browser di sviluppo si possono simulare più casse aprendo più schede con indirizzi diversi:
+`http://localhost:1420/?cassa=1` e `http://localhost:1420/?cassa=2` (ognuna ha il suo database).
+
 ## Nome e icona
 
 L'icona è in `app-icon.svg` (sorgente modificabile) e `app-icon.png` (1024 × 1024).
@@ -126,5 +140,5 @@ Usa sempre `record(tipo, dati)` da `lib/journal.js`.
 - [x] Fase 3: importazione di prodotti e DDT da Fatture in Cloud
 - [x] Eliminazione di prodotti ed eventi, statistiche per giorno, andamento dei singoli prodotti, esportazione in Excel
 - [x] Logo e nome dell'attività, marchi dei prodotti con statistiche per marchio
-- [ ] Fase 4: più casse (chiavetta USB, poi rete locale)
+- [x] Fase 4: più casse in rete locale (cassa principale e casse secondarie)
 - [ ] Fase 5: installazione sul mini PC (schermo intero, avvio automatico)

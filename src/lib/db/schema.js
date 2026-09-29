@@ -162,6 +162,29 @@ export const MIGRATIONS = [
     )`,
     `ALTER TABLE products ADD COLUMN brand_id TEXT`,
     `ALTER TABLE sale_lines ADD COLUMN brand_id TEXT`
+  ],
+
+  // 5: casse collegate. "tills" è condivisa (nomi e ruoli); "till_keys" e "till_seen"
+  // esistono solo sulla cassa principale e non vengono sincronizzate.
+  [
+    `CREATE TABLE IF NOT EXISTS tills (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL,
+      removed INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL,
+      updated_by TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS till_keys (
+      till_id TEXT PRIMARY KEY,
+      key TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS till_seen (
+      till_id TEXT PRIMARY KEY,
+      last_seen TEXT,
+      last_ip TEXT
+    )`
   ]
 ];
 

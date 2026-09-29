@@ -3,7 +3,9 @@
 import initSqlJs from 'sql.js';
 import wasmUrl from 'sql.js/dist/sql-wasm.wasm?url';
 
-const KEY = 'cassa-fiera-dev-db';
+// Con ?cassa=2 nell'indirizzo si apre un database separato: così nel browser si possono
+// simulare più casse in schede diverse.
+const KEY = 'cassa-fiera-dev-db' + (new URLSearchParams(location.search).get('cassa') ? '-' + new URLSearchParams(location.search).get('cassa') : '');
 
 export async function openBrowser() {
   const SQL = await initSqlJs({ locateFile: () => wasmUrl });

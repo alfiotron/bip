@@ -4,7 +4,7 @@
   import AdminHeader from '../components/AdminHeader.svelte';
   import FicSettings from './impostazioni/FicSettings.svelte';
   import ShopSettings from './impostazioni/ShopSettings.svelte';
-  import { app, saveSetting, saveTill, reloadProducts, reloadEvents, setCurrentEvent } from '../lib/state.svelte.js';
+  import { app, saveSetting, reloadProducts, reloadEvents, setCurrentEvent } from '../lib/state.svelte.js';
   import { isTauri, resetDevDb } from '../lib/db/index.js';
   import { loadDemoData, hasDemoData, removeDemoData } from '../lib/demo.js';
   import { play } from '../lib/sound.js';
@@ -18,20 +18,12 @@
     ['wine', 'Bordeaux', '#7C2D3B']
   ];
 
-  let tillName = $state(app.till.name);
-  let tillMsg = $state('');
   let demoMsg = $state('');
   let busy = $state(false);
   let hasDemo = $state(false);
   let confirmRemove = $state(false);
   hasDemoData().then((v) => (hasDemo = v));
 
-  async function saveName() {
-    const n = tillName.trim();
-    if (!n) { tillMsg = 'Scrivi un nome per questa cassa.'; return; }
-    await saveTill({ name: n });
-    tillMsg = 'Nome salvato.';
-  }
   async function demo() {
     if (busy) return;
     busy = true;
@@ -65,20 +57,18 @@
         <div><strong>Bip</strong><span>Versione {pkg.version}</span></div>
       </div>
 
-      <div class="panel">
-        <h3>Questa cassa</h3>
-        <p class="hint" style="margin:0 0 12px">Codice {app.till.id}. Il codice identifica le registrazioni di questa cassa e non si può cambiare dopo le prime vendite.</p>
-        <label class="flabel" style="margin-top:0" for="tname">Nome</label>
-        <div class="newev">
-          <input id="tname" class="field" bind:value={tillName} oninput={() => (tillMsg = '')} />
-          <button type="button" class="solid" onclick={saveName}>Salva</button>
-        </div>
-        {#if tillMsg}<p class="hint">{tillMsg}</p>{/if}
+      <div class="panel row-inline" style="justify-content:space-between">
+        <div><h3 style="margin:0 0 4px">{app.till.name}</h3><p class="hint" style="margin:0">{app.till.role === 'principal' ? 'Cassa principale' : 'Cassa secondaria'}, codice {app.till.id}</p></div>
+        <button type="button" class="outline sm" onclick={() => (app.screen = 'casse')}><Icon name="point_of_sale" /><span>Casse e rete</span></button>
       </div>
 
       <ShopSettings />
 
-      <FicSettings />
+      {#if app.till.role === 'principal'}
+        <FicSettings />
+      {:else}
+        <div class="panel"><h3>Fatture in Cloud</h3><p class="hint" style="margin:0">Il collegamento a Fatture in Cloud si usa dalla cassa principale. I prodotti importati arrivano qui con la sincronizzazione.</p></div>
+      {/if}
 
       <div class="panel">
         <h3>Colore</h3>
@@ -98,6 +88,7 @@
         <p class="hint" style="margin-top:0">Un bip per ogni lettura riuscita e un suono diverso per avvisi ed errori.</p>
       </div>
 
+      {#if app.till.role === 'principal'}
       <div class="panel">
         <h3>Dati di prova</h3>
         <p class="hint" style="margin:0 0 12px">Aggiunge 8 prodotti e un evento aperto per provare la cassa. Potrai chiudere l'evento e modificare i prodotti in qualsiasi momento.</p>
@@ -119,6 +110,7 @@
         {/if}
         {#if demoMsg}<p class="okmsg" use:reveal>{demoMsg}</p>{/if}
       </div>
+      {/if}
     </div>
   </div>
 </div>

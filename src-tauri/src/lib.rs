@@ -1,6 +1,8 @@
 // Il "contenitore" dell'app: apre la finestra e registra i plugin.
 // Tutta la logica della cassa è scritta in JavaScript, nella cartella src/.
 
+mod sync;
+
 /// Scrive un file nel percorso scelto dall'utente con la finestra "Salva con nome"
 /// (per esempio l'esportazione delle statistiche in Excel).
 #[tauri::command]
@@ -18,7 +20,16 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         // Finestre di sistema, come "Salva con nome"
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![write_file])
+        .invoke_handler(tauri::generate_handler![
+            write_file,
+            sync::bip_server_start,
+            sync::bip_server_stop,
+            sync::bip_server_port,
+            sync::bip_respond,
+            sync::bip_discover,
+            sync::bip_local_ips,
+            sync::bip_request
+        ])
         .run(tauri::generate_context!())
         .expect("errore durante l'avvio della cassa");
 }

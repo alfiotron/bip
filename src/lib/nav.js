@@ -5,5 +5,6 @@ export const ADMIN_SCREENS = [
   { key: 'ddt', label: 'DDT', icon: 'local_shipping' },
   { key: 'statistiche', label: 'Statistiche', icon: 'bar_chart' },
   { key: 'eventi', label: 'Eventi', icon: 'event' },
+  { key: 'casse', label: 'Casse', icon: 'point_of_sale' },
   { key: 'impostazioni', label: 'Impostazioni', icon: 'settings' }
 ];

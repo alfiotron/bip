@@ -6,7 +6,9 @@
   const pctTxt = (v) => String(v).replace('.', ',');
   const vat = $derived(vatIncluded(pos.lines, pos.subtotal, pos.total));
   const discountLabel = $derived(
-    pos.discount.kind === 'pct' ? `Sconto ${pctTxt(pos.discount.value)}%: − ${eur(pos.discountCents)}` : `Sconto fisso: − ${eur(pos.discountCents)}`
+    pos.discount.kind === 'pct'
+      ? `Sconto ${pctTxt(pos.discount.value)}%: − ${eur(pos.discountCents)}`
+      : `Sconto ${eur(pos.discountCents)} (${pos.subtotal ? ((pos.discountCents / pos.subtotal) * 100).toLocaleString('it-IT', { maximumFractionDigits: 1 }) : 0}%)`
   );
 </script>
 

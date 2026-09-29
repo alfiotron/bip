@@ -1,6 +1,8 @@
 import { buildXlsx, totalRow } from './xlsx.js';
 import { saveFile } from './save.js';
 import { eventStatistics, dayLabel } from './stats.js';
+
+const ratio = (list, income) => (list ? Math.round(((list - income) / list) * 1000) / 10 : '');
 import { eventSummary } from './stock.js';
 import { codeLabel } from './codes.js';
 
@@ -36,6 +38,9 @@ export async function exportEvent(event, products, tillName, brandName = () => '
         s && s.loaded ? s.loaded : '',
         r.sold,
         r.gifts || '',
+        r.list || '',
+        r.list ? r.income : '',
+        ratio(r.list, r.income),
         s && s.ddtOut - s.ddtBack ? s.ddtOut - s.ddtBack : '',
         s && s.loaded ? s.left : '',
         ...(multiDay ? st.days.map((d) => r.days[d]?.sold || '') : [])
@@ -43,13 +48,13 @@ export async function exportEvent(event, products, tillName, brandName = () => '
     });
   const o = withBrands ? 1 : 0; // colonne spostate dalla colonna Marchio
   const sumCol = (i) => prodRows.reduce((t, r) => t + (Number(r[i + o]) || 0), 0);
-  prodRows.push(totalRow(['Totale', ...(withBrands ? [''] : []), '', '', '', sumCol(4), sumCol(5), sumCol(6), sumCol(7), sumCol(8), ...(multiDay ? st.days.map((_, i) => sumCol(9 + i)) : [])]));
+  prodRows.push(totalRow(['Totale', ...(withBrands ? [''] : []), '', '', '', sumCol(4), sumCol(5), sumCol(6), sumCol(7), sumCol(8), ratio(sumCol(7), sumCol(8)), sumCol(10), sumCol(11), ...(multiDay ? st.days.map((_, i) => sumCol(12 + i)) : [])]));
 
-  const brandRows = st.brands.map((b) => [brandName(b.brand), b.sold, b.gifts || '', b.list, b.list - b.income, b.income]);
-  brandRows.push(totalRow(['Totale', ...[1, 2].map((i) => brandRows.reduce((t, r) => t + (Number(r[i]) || 0), 0)), ...[3, 4, 5].map((i) => brandRows.reduce((t, r) => t + (Number(r[i]) || 0), 0))]));
+  const brandRows = st.brands.map((b) => [brandName(b.brand), b.sold, b.gifts || '', b.list, b.list - b.income, b.income, ratio(b.list, b.income)]);
+  brandRows.push(totalRow(['Totale', ...[1, 2].map((i) => brandRows.reduce((t, r) => t + (Number(r[i]) || 0), 0)), ...[3, 4, 5].map((i) => brandRows.reduce((t, r) => t + (Number(r[i]) || 0), 0)), ratio(st.list, st.income)]));
 
-  const dayRows = st.byDay.map((d) => [dayLabel(d.day), d.count, d.pieces, d.income, d.methods.card.total, d.methods.cash.total, d.discounts, d.rounding, d.gifts.pieces]);
-  dayRows.push(totalRow(['Totale', st.count, st.pieces, st.income, st.methods.card.total, st.methods.cash.total, st.discounts, st.rounding, st.gifts.pieces]));
+  const dayRows = st.byDay.map((d) => [dayLabel(d.day), d.count, d.pieces, d.list, d.income, ratio(d.list, d.income), d.methods.card.total, d.methods.cash.total, d.discounts, d.rounding, d.gifts.pieces]);
+  dayRows.push(totalRow(['Totale', st.count, st.pieces, st.list, st.income, ratio(st.list, st.income), st.methods.card.total, st.methods.cash.total, st.discounts, st.rounding, st.gifts.pieces]));
 
   const saleRows = st.sales.map((s) => {
     const d = new Date(s.at);
@@ -77,7 +82,9 @@ export async function exportEvent(event, products, tillName, brandName = () => '
       columns: [
         { header: 'Prodotto', width: 36 }, ...(withBrands ? [{ header: 'Marchio', width: 22 }] : []), { header: 'Descrizione', width: 24 }, { header: 'Codice', width: 20 },
         { header: 'Prezzo', width: 11, type: 'money' }, { header: 'Portati', width: 9, type: 'int' }, { header: 'Venduti', width: 9, type: 'int' },
-        { header: 'Omaggi', width: 9, type: 'int' }, { header: 'DDT', width: 8, type: 'int' }, { header: 'Rimasti', width: 9, type: 'int' },
+        { header: 'Omaggi', width: 9, type: 'int' },
+        { header: 'Prezzo pieno', width: 13, type: 'money' }, { header: 'Incassato (ripartito)', width: 19, type: 'money' }, { header: 'Sconto %', width: 10 },
+        { header: 'DDT', width: 8, type: 'int' }, { header: 'Rimasti', width: 9, type: 'int' },
         ...(multiDay ? st.days.map((d) => ({ header: 'Venduti ' + dayLabel(d), width: 16, type: 'int' })) : [])
       ],
       rows: prodRows
@@ -87,7 +94,8 @@ export async function exportEvent(event, products, tillName, brandName = () => '
           name: 'Marchi',
           columns: [
             { header: 'Marchio', width: 28 }, { header: 'Pezzi venduti', width: 14, type: 'int' }, { header: 'Omaggi', width: 10, type: 'int' },
-            { header: 'A prezzo pieno', width: 16, type: 'money' }, { header: 'Sconti e arrotondamenti', width: 22, type: 'money' }, { header: 'Incassato', width: 14, type: 'money' }
+            { header: 'A prezzo pieno', width: 16, type: 'money' }, { header: 'Sconti e arrotondamenti', width: 22, type: 'money' }, { header: 'Incassato', width: 14, type: 'money' },
+            { header: 'Sconto %', width: 10 }
           ],
           rows: brandRows
         }]
@@ -96,7 +104,8 @@ export async function exportEvent(event, products, tillName, brandName = () => '
       name: 'Giorni',
       columns: [
         { header: 'Giorno', width: 16 }, { header: 'Vendite', width: 10, type: 'int' }, { header: 'Pezzi venduti', width: 14, type: 'int' },
-        { header: 'Incasso', width: 13, type: 'money' }, { header: 'Carta', width: 13, type: 'money' }, { header: 'Contanti', width: 13, type: 'money' },
+        { header: 'Prezzo pieno', width: 13, type: 'money' }, { header: 'Incasso', width: 13, type: 'money' }, { header: 'Sconto %', width: 10 },
+        { header: 'Carta', width: 13, type: 'money' }, { header: 'Contanti', width: 13, type: 'money' },
         { header: 'Sconti', width: 12, type: 'money' }, { header: 'Arrotondamenti', width: 15, type: 'money' }, { header: 'Pezzi in omaggio', width: 16, type: 'int' }
       ],
       rows: dayRows

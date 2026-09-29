@@ -28,10 +28,16 @@ export async function loadClients() {
 
 /** Prossimo numero di DDT per questa cassa, per esempio C1-8. Ogni cassa ha la sua numerazione. */
 export async function nextTransferNumber(tillId) {
-  const rows = await q('SELECT number FROM transfers WHERE origin = ?', [tillId]);
-  const max = rows.reduce((m, r) => Math.max(m, parseInt(String(r.number).split('-').pop(), 10) || 0), 0);
+  // Si guardano anche i DDT eliminati (restano nel journal): un numero non si riusa mai
+  const rows = await q(`SELECT payload FROM journal WHERE origin = ? AND kind = 'transfer.create'`, [tillId]);
+  const max = rows.reduce((m, r) => {
+    try { return Math.max(m, parseInt(String(JSON.parse(r.payload).number).split('-').pop(), 10) || 0); } catch { return m; }
+  }, 0);
   return `${tillId}-${max + 1}`;
 }
+
+export const deleteTransfer = (id) => record('transfer.delete', { id });
+export const deleteReturn = (id) => record('transfer.return.delete', { id });
 
 export async function createTransfer(tillId, t) {
   const payload = {

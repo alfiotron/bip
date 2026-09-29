@@ -5,6 +5,7 @@ import { q, x } from './db/index.js';
 
 const PRODUCT_COLS = ['code', 'name', 'description', 'price_cents', 'vat_rate', 'active', 'alert_below', 'fic_id', 'brand_id'];
 const BRAND_COLS = ['name'];
+const TILL_COLS = ['name', 'role', 'removed'];
 const EVENT_COLS = ['name', 'is_open'];
 const CLIENT_COLS = ['name', 'address', 'vat'];
 
@@ -54,6 +55,9 @@ export async function applyEntry(e) {
   const p = e.payload;
   // Registrazioni che appartengono a un evento eliminato: si ignorano.
   if (p && p.event_id && (await isDeleted(p.event_id))) return;
+  // DDT e rientri eliminati (anche se la creazione arriva dopo l'eliminazione, da un'altra cassa)
+  if ((e.kind === 'transfer.create' || e.kind === 'transfer.return') && (await isDeleted(p.id))) return;
+  if (e.kind === 'transfer.return' && (await isDeleted(p.transfer_id))) return;
   switch (e.kind) {
     case 'product.upsert':
       return upsertLatest('products', PRODUCT_COLS, p, e);
@@ -61,6 +65,8 @@ export async function applyEntry(e) {
       return upsertLatest('events', EVENT_COLS, p, e);
     case 'client.upsert':
       return upsertLatest('clients', CLIENT_COLS, p, e);
+    case 'till.upsert':
+      return upsertLatest('tills', TILL_COLS, p, e);
     case 'brand.upsert':
       return upsertLatest('brands', BRAND_COLS, p, e);
     case 'brand.delete':
@@ -112,6 +118,18 @@ export async function applyEntry(e) {
         [p.key, p.value ?? null, e.at, e.origin]
       );
     }
+
+    case 'transfer.delete':
+      await markDeleted(p.id, 'transfer', e.at);
+      await x('DELETE FROM transfer_return_lines WHERE return_id IN (SELECT id FROM transfer_returns WHERE transfer_id = ?)', [p.id]);
+      await x('DELETE FROM transfer_returns WHERE transfer_id = ?', [p.id]);
+      await x('DELETE FROM transfer_lines WHERE transfer_id = ?', [p.id]);
+      return x('DELETE FROM transfers WHERE id = ?', [p.id]);
+
+    case 'transfer.return.delete':
+      await markDeleted(p.id, 'transfer_return', e.at);
+      await x('DELETE FROM transfer_return_lines WHERE return_id = ?', [p.id]);
+      return x('DELETE FROM transfer_returns WHERE id = ?', [p.id]);
 
     case 'product.delete':
       await markDeleted(p.id, 'product', e.at);

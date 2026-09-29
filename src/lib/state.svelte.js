@@ -10,7 +10,8 @@ export const app = $state({
   ready: false,
   error: null,
   screen: 'cassa',
-  till: { id: 'C1', name: 'Cassa 1', role: 'principal' },
+  till: { id: '', name: '', role: '' }, // role: 'principal' | 'secondary' | '' (da configurare)
+  setupNeeded: false,
   accent: 'petrol',
   sound: true,
   // Impostazioni dell'attività, uguali su tutte le casse
@@ -84,12 +85,28 @@ export async function saveSetting(key, value) {
   if (key === 'sound') setSoundEnabled(value);
 }
 
-export async function saveTill(till) {
-  app.till = { ...app.till, ...till };
-  await setMeta('till_id', app.till.id);
-  await setMeta('till_name', app.till.name);
-  await setMeta('till_role', app.till.role);
-  setJournalTill(app.till.id);
+/** Nome e ruolo di questa cassa: il nome viene dall'elenco condiviso delle casse (lo decide la principale). */
+export async function loadTill() {
+  const id = (await getMeta('till_id', '')) || '';
+  const role = (await getMeta('till_role', '')) || '';
+  const rows = id ? await q('SELECT name FROM tills WHERE id = ?', [id]) : [];
+  app.till = { id, role, name: rows[0]?.name || (id ? 'Cassa ' + id.replace(/\D/g, '') : '') };
+  setJournalTill(id);
+}
+
+/** Ricarica tutto dopo aver ricevuto dati da un'altra cassa. */
+export async function refreshAll() {
+  await reloadBrands();
+  await reloadProducts();
+  await reloadEvents();
+  await loadShop();
+  await loadTill();
+  if (app.currentEventId && !app.events.some((e) => e.id === app.currentEventId)) app.currentEventId = null;
+  if (!app.currentEventId) {
+    const open = app.events.filter((e) => e.is_open);
+    if (open.length === 1) await setCurrentEvent(open[0].id);
+  }
+  await refreshEventData();
 }
 
 const SHOP_KEYS = { name: 'shop_name', logo: 'shop_logo', logoTop: 'shop_logo_top', logoIdle: 'shop_logo_idle' };
@@ -100,7 +117,7 @@ export async function loadShop() {
   // L'intestazione era salvata solo su questa cassa: la si porta tra le impostazioni condivise
   if (v.shop_name === undefined) {
     const old = await getMeta('businessName', '');
-    if (old) { await record('setting.upsert', { key: 'shop_name', value: old }); v.shop_name = old; }
+    if (old && app.till.id) { await record('setting.upsert', { key: 'shop_name', value: old }); v.shop_name = old; }
   }
   app.shop = {
     name: v.shop_name || '',
@@ -120,12 +137,8 @@ export async function saveShop(field, value) {
 export async function init() {
   try {
     await openDb();
-    app.till = {
-      id: await getMeta('till_id', 'C1'),
-      name: await getMeta('till_name', 'Cassa 1'),
-      role: await getMeta('till_role', 'principal')
-    };
-    setJournalTill(app.till.id);
+    await loadTill();
+    app.setupNeeded = !app.till.role;
     await applyPending();
     app.accent = await getMeta('accent', 'petrol');
     app.sound = (await getMeta('sound', '1')) === '1';

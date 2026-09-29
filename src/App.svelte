@@ -7,6 +7,10 @@
   import Dotazione from './screens/Dotazione.svelte';
   import Ddt from './screens/Ddt.svelte';
   import Statistiche from './screens/Statistiche.svelte';
+  import Casse from './screens/Casse.svelte';
+  import Setup from './screens/Setup.svelte';
+  import { startHub } from './lib/sync/hub.svelte.js';
+  import { startLink } from './lib/sync/link.svelte.js';
   import { app, init, productByCode } from './lib/state.svelte.js';
   import { dz } from './lib/dotazione.svelte.js';
   import { ddtScan } from './lib/ddt.svelte.js';
@@ -15,10 +19,14 @@
   import { productsScan } from './lib/products.svelte.js';
 
   onMount(() => {
-    init();
+    init().then(() => {
+      // La rete parte dopo l'avvio: la principale si mette in ascolto, la secondaria si collega
+      if (app.till.role === 'principal') startHub();
+      if (app.till.role === 'secondary') startLink();
+    });
     // Lo scanner funziona ovunque; cosa fa dipende dalla schermata aperta.
     return startScanner((code) => {
-      if (!app.ready) return;
+      if (!app.ready || app.setupNeeded) return;
       if (app.screen === 'cassa') scan(code);
       else if (app.screen === 'prodotti') productsScan(code);
       else if (app.screen === 'ddt') ddtScan(code);
@@ -39,6 +47,8 @@
   </div>
 {:else if !app.ready}
   <div class="loading">Avvio della cassa…</div>
+{:else if app.setupNeeded}
+  <Setup />
 {:else if app.screen === 'prodotti'}
   <Prodotti />
 {:else if app.screen === 'eventi'}
@@ -49,6 +59,8 @@
   <Ddt />
 {:else if app.screen === 'statistiche'}
   <Statistiche />
+{:else if app.screen === 'casse'}
+  <Casse />
 {:else if app.screen === 'impostazioni'}
   <Impostazioni />
 {:else}

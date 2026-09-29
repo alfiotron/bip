@@ -4,6 +4,25 @@
   import { ui } from '../../lib/ui.svelte.js';
   import { eur } from '../../lib/money.js';
   import { ADMIN_SCREENS } from '../../lib/nav.js';
+  import { hub } from '../../lib/sync/hub.svelte.js';
+  import { link } from '../../lib/sync/link.svelte.js';
+
+  let now = $state(Date.now());
+  $effect(() => {
+    const t = setInterval(() => (now = Date.now()), 5000);
+    return () => clearInterval(t);
+  });
+  // Casse secondarie che si sono fatte sentire negli ultimi 20 secondi
+  const connected = $derived(Object.values(hub.seen).filter((s) => now - new Date(s.at).getTime() < 20000).length);
+  const net = $derived.by(() => {
+    if (app.till.role === 'principal') {
+      if (!hub.running) return { on: false, icon: 'cloud_off', text: 'rete non attiva' };
+      return { on: connected > 0, icon: 'hub', text: connected ? (connected === 1 ? '1 cassa collegata' : connected + ' casse collegate') : '' };
+    }
+    if (link.state === 'revoked') return { on: false, icon: 'link_off', text: 'scollegata' };
+    if (link.state === 'ok') return { on: true, icon: 'sync', text: link.pending ? `${link.pending} da inviare` : 'in rete' };
+    return { on: false, icon: 'cloud_off', text: link.pending ? `${link.pending} da inviare` : 'non collegata' };
+  });
 
   const ev = $derived(currentEvent());
   const openEvents = $derived(app.events.filter((e) => e.is_open));
@@ -64,6 +83,10 @@
     </div>
   {/if}
 </div>
+
+<button type="button" class="netpill" class:on={net.on} aria-label="Stato della rete" onclick={() => (app.screen = 'casse')}>
+  <Icon name={net.icon} /><span>{app.till.name}{net.text ? ', ' + net.text : ''}</span>
+</button>
 
 <div class="status {st[0]}" role="status"><Icon name={st[1]} /><span class="num">{ui.status.text}</span></div>
 

@@ -8,12 +8,14 @@
   import FicDdtImport from './fic/FicDdtImport.svelte';
   import { app, currentEvent, productById, refreshEventData } from '../lib/state.svelte.js';
   import { dd, newEditor } from '../lib/ddt.svelte.js';
-  import { loadTransfers, createReturn, REASONS } from '../lib/transfers.js';
+  import { loadTransfers, createReturn, deleteTransfer, deleteReturn, REASONS } from '../lib/transfers.js';
   import { codeLabel } from '../lib/codes.js';
 
   let transfers = $state([]);
   let note = $state('');
   let ret = $state({ destination: 'fair', qty: {}, err: '' });
+  let askDelete = $state(null); // id del DDT di cui si chiede conferma dell'eliminazione
+  let askReturn = $state(null); // id del rientro da annullare
 
   $effect(() => {
     app.version;
@@ -57,6 +59,26 @@
     ret.qty[pid] = Math.min(max, Math.max(0, (ret.qty[pid] || 0) + d));
     ret.err = '';
   }
+  function deleteText(t) {
+    if (t.direction === 'in') return `Eliminare il rifornimento ${t.number}? ${t.pieces === 1 ? '1 pezzo verrà tolto' : t.pieces + ' pezzi verranno tolti'} dalla dotazione di ${t.event_name}.`;
+    const back = t.returns.filter((r) => r.destination === 'fair').reduce((s, r) => s + r.lines.reduce((x, l) => x + l.qty, 0), 0);
+    const net = t.pieces - back;
+    return `Eliminare il DDT ${t.number}? ` + (net > 0 ? `${net === 1 ? '1 pezzo tornerà' : net + ' pezzi torneranno'} nella dotazione di ${t.event_name}` : 'La dotazione non cambia') +
+      (t.returns.length ? ', e verranno annullati anche i rientri registrati.' : '.');
+  }
+  async function doDelete(t) {
+    askDelete = null;
+    await deleteTransfer(t.id);
+    await refreshEventData();
+    dd.selected = null;
+    note = `DDT ${t.number} eliminato.`;
+  }
+  async function doDeleteReturn(r) {
+    askReturn = null;
+    await deleteReturn(r.id);
+    await refreshEventData();
+    dd.notice = 'Rientro annullato.';
+  }
   async function confirmReturn() {
     const lines = Object.entries(ret.qty).map(([product_id, qty]) => ({ product_id, qty })).filter((l) => l.qty > 0);
     if (!lines.length) { ret.err = 'Indica almeno un pezzo che rientra.'; return; }
@@ -66,6 +88,18 @@
     dd.notice = `Rientro registrato: ${lines.reduce((s, l) => s + l.qty, 0)} pezzi ${ret.destination === 'fair' ? 'in fiera' : 'in sede'}.`;
   }
 </script>
+
+{#snippet deleteBlock(t)}
+  {#if askDelete === t.id}
+    <div class="confirmbox" style="margin-top:14px" use:reveal>
+      <p>{deleteText(t)} L'operazione vale su tutte le casse.</p>
+      <button type="button" onclick={() => (askDelete = null)}>Annulla</button>
+      <button type="button" class="go" onclick={() => doDelete(t)}>Elimina DDT</button>
+    </div>
+  {:else}
+    <button type="button" class="linkb danger" style="margin-top:14px" onclick={() => { askDelete = t.id; askReturn = null; }}><Icon name="delete" size={18} />Elimina DDT</button>
+  {/if}
+{/snippet}
 
 {#if dd.importing && currentEvent()}
   <div class="admin">
@@ -135,6 +169,7 @@
               <div class="kvrow"><span>{p?.name || 'Prodotto eliminato'}<small>{codeLabel(p?.code)}</small></span><span class="num up">+{l.qty}</span></div>
             {/each}
             {#if dd.notice}<p class="okmsg">{dd.notice}</p>{/if}
+            {@render deleteBlock(sel)}
           {:else if dd.returning}
             <h2 class="fh">Rientro dal DDT {sel.number}</h2>
             <p class="hint">{sel.client_name}</p>
@@ -184,7 +219,18 @@
             {#if sel.returns.length}
               <p class="sect">Rientri</p>
               {#each sel.returns as r (r.id)}
-                <div class="kvrow"><span>Rientro {r.destination === 'fair' ? 'in fiera' : 'in sede'}<small>{date(r.at)}, {tillName(r.origin)}</small></span><span class="num up">+{r.lines.reduce((s, l) => s + l.qty, 0)}</span></div>
+                <div class="kvrow">
+                  <span>Rientro {r.destination === 'fair' ? 'in fiera' : 'in sede'}<small>{date(r.at)}, {tillName(r.origin)}</small></span>
+                  <span class="retacts"><span class="num up">+{r.lines.reduce((s, l) => s + l.qty, 0)}</span>
+                    <button type="button" class="linkb" onclick={() => (askReturn = r.id)}>Annulla</button></span>
+                </div>
+                {#if askReturn === r.id}
+                  <div class="confirmbox" use:reveal>
+                    <p>Annullare questo rientro? I pezzi risulteranno di nuovo presso {sel.client_name}{r.destination === 'fair' ? ` e verranno tolti dalla dotazione di ${sel.event_name}` : ''}.</p>
+                    <button type="button" onclick={() => (askReturn = null)}>No</button>
+                    <button type="button" class="go" onclick={() => doDeleteReturn(r)}>Annulla rientro</button>
+                  </div>
+                {/if}
               {/each}
             {/if}
             {#if dd.notice}<p class="okmsg">{dd.notice}</p>{/if}
@@ -196,6 +242,7 @@
                 <p class="hint" style="align-self:center;margin:0">{sel.reason === 'sale' ? 'Merce venduta al cliente.' : 'Tutta la merce è rientrata.'}</p>
               {/if}
             </div>
+            {@render deleteBlock(sel)}
           {/if}
         {:else}
           <div class="empty">
