@@ -5,6 +5,7 @@
   import FicSettings from './impostazioni/FicSettings.svelte';
   import ShopSettings from './impostazioni/ShopSettings.svelte';
   import MailSettings from './impostazioni/MailSettings.svelte';
+  import ResetPanel from './impostazioni/ResetPanel.svelte';
   import { app, saveSetting, reloadProducts, reloadEvents, setCurrentEvent } from '../lib/state.svelte.js';
   import { isTauri, resetDevDb } from '../lib/db/index.js';
   import { loadDemoData, hasDemoData, removeDemoData } from '../lib/demo.js';
@@ -116,6 +117,8 @@
         {#if demoMsg}<p class="okmsg" use:reveal>{demoMsg}</p>{/if}
       </div>
       {/if}
+
+      <ResetPanel />
     </div>
   </div>
 </div>

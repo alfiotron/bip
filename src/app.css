@@ -617,3 +617,6 @@ select.sel.bad{border-color:var(--err)}
 textarea.field.area{height:auto;min-height:64px;padding:12px 14px;resize:vertical;line-height:1.4}
 .reportpanel{margin-bottom:16px;border-color:var(--acc)}
 @media (max-width:640px){ .mailgrid{grid-template-columns:1fr} }
+
+.dangerpanel{border-color:var(--err-bg)}
+.dangerpanel h3{color:var(--err)}
