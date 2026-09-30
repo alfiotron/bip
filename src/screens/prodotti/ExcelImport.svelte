@@ -1,14 +1,9 @@
 <script>
   import Icon from '../../components/Icon.svelte';
-  import Cover from '../../components/Cover.svelte';
-  import ImportBrandBar from '../../components/ImportBrandBar.svelte';
-  import { app, brandName } from '../../lib/state.svelte.js';
+  import ImportList from '../../components/ImportList.svelte';
   import { readTable } from '../../lib/sheet.js';
   import { FIELDS, headerRowIndex, guessMapping, parseRows, saveTemplate } from '../../lib/excelImport.js';
-  import { matchLocal, statusOf, STATUS_TAGS, importItems, importMessage } from '../../lib/catalogImport.js';
-  import { eur } from '../../lib/money.js';
-  import { codeLabel } from '../../lib/codes.js';
-  import { reveal, revealFirstError } from '../../lib/reveal.js';
+  import { reveal } from '../../lib/reveal.js';
 
   let { onclose, ondone } = $props();
 
@@ -18,24 +13,11 @@
   let map = $state({});
   let defaultVat = $state(0);
   let fileErr = $state('');
-  let brand = $state(null);
-  let selected = $state(new Set());
-  let showErrors = $state(false);
-  let busy = $state(false);
-  let err = $state('');
   let input;
 
   const header = $derived(rows[headerIdx] || []);
   const columns = $derived(header.map((h, i) => ({ i, label: String(h).trim() || `Colonna ${i + 1}` })));
   const parsed = $derived(rows.length && map.name !== undefined && map.price !== undefined ? parseRows(rows, headerIdx, map, defaultVat) : { items: [], errors: [] });
-  const items = $derived(parsed.items.map((it) => { const local = matchLocal(it, app.products); return { ...it, local, status: statusOf(it, local) }; }));
-  const moving = $derived(items.filter((i) => selected.has(i.key) && i.local && brand && i.local.brand_id && i.local.brand_id !== brand).length);
-  const count = (s) => items.filter((i) => i.status === s).length;
-
-  // Quando cambiano file o colonne, si selezionano i prodotti nuovi e modificati
-  $effect(() => {
-    selected = new Set(items.filter((i) => i.status === 'new' || i.status === 'changed').map((i) => i.key));
-  });
 
   async function pick(e) {
     const file = e.currentTarget.files?.[0];
@@ -59,19 +41,6 @@
     if (v === '') delete m[key];
     else m[key] = Number(v);
     map = m;
-  }
-  function toggle(k) {
-    const s = new Set(selected);
-    s.has(k) ? s.delete(k) : s.add(k);
-    selected = s;
-    err = '';
-  }
-  async function doImport() {
-    if (!selected.size) { err = 'Seleziona almeno un prodotto da importare.'; revealFirstError(); return; }
-    busy = true;
-    const r = await importItems(items.filter((i) => selected.has(i.key)), brand);
-    busy = false;
-    ondone(importMessage(r, brand ? brandName(brand) : ''));
   }
 </script>
 
@@ -116,50 +85,9 @@
     {#if map.name === undefined || map.price === undefined}
       <p class="kerr" style="margin-top:12px">Scegli almeno le colonne del nome e del prezzo.</p>
     {:else}
-      <div style="margin-top:12px"><ImportBrandBar bind:value={brand} {moving} /></div>
-
-      <div class="counts" style="margin-top:16px">
-        <span class="tag" style="margin-left:0">{count('new')} {count('new') === 1 ? 'nuovo' : 'nuovi'}</span>
-        <span class="tag warn" style="margin-left:0">{count('changed')} {count('changed') === 1 ? 'modificato' : 'modificati'}</span>
-        <span class="tag off" style="margin-left:0">{count('same')} già {count('same') === 1 ? 'presente' : 'presenti'}</span>
-        {#if parsed.errors.length}
-          <button type="button" class="tag bad" style="margin-left:0;border:0;cursor:pointer" onclick={() => (showErrors = !showErrors)}>{parsed.errors.length} {parsed.errors.length === 1 ? 'riga con errori' : 'righe con errori'}</button>
-        {/if}
-      </div>
-      {#if showErrors && parsed.errors.length}
-        <div class="panel" style="margin-bottom:12px" use:reveal>
-          <h3>Righe non importate</h3>
-          {#each parsed.errors as e (e.line)}
-            <div class="kvrow"><span>Riga {e.line}{e.name ? `: ${e.name}` : ''}<small>{e.text}</small></span><span></span></div>
-          {/each}
-          <p class="hint">Correggile nel file e sceglilo di nuovo, oppure importa intanto le righe corrette.</p>
-        </div>
-      {/if}
-
-      <div style="display:flex;gap:14px;margin-bottom:6px">
-        <button type="button" class="linkb" onclick={() => (selected = new Set(items.filter((i) => i.status !== 'same').map((i) => i.key)))}>Seleziona nuovi e modificati</button>
-        <button type="button" class="linkb" onclick={() => (selected = new Set(items.map((i) => i.key)))}>Seleziona tutti</button>
-        <button type="button" class="linkb" onclick={() => (selected = new Set())}>Deseleziona tutto</button>
-      </div>
-      {#each items as it (it.key)}
-        {@const on = selected.has(it.key)}
-        <button type="button" class="fgrid" aria-pressed={on} onclick={() => toggle(it.key)}>
-          <span class="ck" class:on><Icon name={on ? 'check_box' : 'check_box_outline_blank'} fill={on} /></span>
-          <Cover item={it.local || { id: it.key, name: it.name }} />
-          <span style="min-width:0"><span class="rt">{it.name}</span>
-            <span class="ra num">{it.code ? codeLabel(it.code) : 'Senza codice'}{it.local && it.local.brand_id && app.brands.length ? ', ora in ' + brandName(it.local.brand_id) : ''}</span></span>
-          <span class="fhide"><span class="tag {STATUS_TAGS[it.status][0]}" style="margin-left:0">{STATUS_TAGS[it.status][1]}</span></span>
-          <span class="r-al num" style="font-weight:600">{#if it.status === 'changed' && it.local.price_cents !== it.price_cents}<span class="old">{eur(it.local.price_cents)}</span>{/if}{eur(it.price_cents)}</span>
-          <span class="r-al fhide" style="color:var(--ink-2);font-size:14px">{it.vat_rate ? it.vat_rate + '%' : 'Assolta'}</span>
-        </button>
-      {:else}
-        <p class="hint">Nessuna riga valida da importare.</p>
-      {/each}
-      {#if err}<p class="kerr">{err}</p>{/if}
-      <div class="ficbar">
-        <span class="hint" style="margin:0">{selected.size} {selected.size === 1 ? 'prodotto selezionato' : 'prodotti selezionati'}{brand ? ` nel marchio ${brandName(brand)}` : ''}</span>
-        <button type="button" class="solid" disabled={busy} onclick={doImport}><Icon name="download" /><span>Importa</span></button>
-      </div>
+      {#key fileName + JSON.stringify(map) + defaultVat}
+        <ImportList source={parsed.items} errors={parsed.errors} {ondone} />
+      {/key}
     {/if}
   {/if}
 </div>

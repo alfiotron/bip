@@ -39,6 +39,13 @@ export async function pair(url, code) {
   return r.body;
 }
 
+/** Catalogo di un'altra cassa principale (indipendente), con il codice di condivisione. */
+export async function fetchCatalog(url, code) {
+  const r = await request(url + '/bip/v1/catalog', { code: String(code).trim() }, {}, 20000);
+  if (r.status !== 200) throw new Error(r.body?.message || 'Non è stato possibile ricevere il catalogo.');
+  return r.body;
+}
+
 export async function syncNow() {
   if (busy) return;
   busy = true;

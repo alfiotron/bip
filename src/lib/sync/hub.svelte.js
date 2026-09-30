@@ -16,6 +16,9 @@ export const hub = $state({
   code: null, // codice di abbinamento mostrato mentre si collega una nuova cassa
   codeExpires: 0,
   justPaired: null, // nome dell'ultima cassa collegata
+  shareCode: null, // codice per passare il catalogo a una cassa indipendente
+  shareExpires: 0,
+  shared: null, // a chi è stato passato l'ultima volta
   seen: {} // till_id → { at, ip }
 });
 
@@ -28,6 +31,36 @@ export function newPairingCode() {
 }
 export function closePairing() {
   hub.code = null;
+}
+
+export function newShareCode() {
+  hub.shareCode = String(Math.floor(100000 + Math.random() * 900000));
+  hub.shareExpires = Date.now() + CODE_MINUTES * 60000;
+  hub.shared = null;
+}
+export function closeShare() {
+  hub.shareCode = null;
+}
+
+/** Catalogo (prodotti e marchi) per un'altra cassa principale, indipendente da questa. */
+async function catalog(body, remote) {
+  if (!hub.shareCode || Date.now() > hub.shareExpires) return { status: 403, body: { error: 'nocode', message: 'Sull\'altra cassa non è aperta la condivisione del catalogo. Tocca "Condividi il catalogo" nella sua scheda Casse.' } };
+  if (String(body?.code || '').trim() !== hub.shareCode) return { status: 403, body: { error: 'badcode', message: 'Il codice non è corretto. Controlla quello mostrato sull\'altra cassa.' } };
+  const brands = await q('SELECT id, name FROM brands');
+  const bname = Object.fromEntries(brands.map((b) => [b.id, b.name]));
+  const products = await q('SELECT * FROM products ORDER BY name COLLATE NOCASE');
+  hub.shared = remote || 'un\'altra cassa';
+  return {
+    status: 200,
+    body: {
+      shop_name: app.shop.name,
+      till_name: app.till.name,
+      products: products.map((p) => ({
+        code: p.code || '', name: p.name, description: p.description || '', price_cents: Number(p.price_cents), vat_rate: Number(p.vat_rate),
+        active: !!p.active, brand_name: p.brand_id ? bname[p.brand_id] || '' : ''
+      }))
+    }
+  };
 }
 
 async function authorize(headers) {
@@ -93,6 +126,7 @@ async function handle(req) {
   if (req.method === 'GET' && path === '/bip/v1/hello') return hello();
   if (req.method === 'POST' && path === '/bip/v1/pair') return pair(req.body, req.remote);
   if (req.method === 'POST' && path === '/bip/v1/sync') return sync(req.body, req.headers, req.remote);
+  if (req.method === 'POST' && path === '/bip/v1/catalog') return catalog(req.body, req.remote);
   return { status: 404, body: { error: 'notfound' } };
 }
 

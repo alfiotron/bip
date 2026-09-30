@@ -10,7 +10,8 @@ export const FIELDS = [
   { key: 'code', label: 'Codice a barre' },
   { key: 'price', label: 'Prezzo', required: true },
   { key: 'vat', label: 'IVA' },
-  { key: 'description', label: 'Descrizione' }
+  { key: 'description', label: 'Descrizione' },
+  { key: 'brand', label: 'Marchio' }
 ];
 
 const SYNONYMS = {
@@ -18,7 +19,8 @@ const SYNONYMS = {
   code: ['codice', 'codice a barre', 'barcode', 'isbn', 'ean', 'ean13', 'isbn13', 'sku', 'cod', 'codice articolo', 'code'],
   price: ['prezzo', 'prezzo di vendita', 'prezzo copertina', 'prezzo ivato', 'prezzo ivato incluso', 'pvp', 'listino', 'prezzo al pubblico', 'price'],
   vat: ['iva', 'aliquota', 'aliquota iva', '% iva', 'vat'],
-  description: ['descrizione', 'autore', 'autori', 'editore', 'note', 'formato', 'description']
+  description: ['descrizione', 'autore', 'autori', 'note', 'formato', 'description'],
+  brand: ['marchio', 'brand', 'editore', 'marca', 'collana']
 };
 
 const clean = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9% ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -34,7 +36,7 @@ export function guessMapping(header) {
   const h = header.map(clean);
   const map = {};
   const used = new Set();
-  for (const key of ['code', 'price', 'vat', 'name', 'description']) {
+  for (const key of ['code', 'price', 'vat', 'brand', 'name', 'description']) {
     let i = h.findIndex((x, j) => !used.has(j) && SYNONYMS[key].includes(x));
     if (i < 0) i = h.findIndex((x, j) => !used.has(j) && x && SYNONYMS[key].some((s) => x.startsWith(s + ' ') || x.includes(' ' + s)));
     if (i >= 0) { map[key] = i; used.add(i); }
@@ -94,7 +96,7 @@ export function parseRows(rows, headerIdx, map, defaultVat) {
     if (!code.error && code.value && seen.has(code.value)) probs.push(`codice già presente alla riga ${seen.get(code.value)}`);
     if (probs.length) { errors.push({ line, name, text: probs.join(', ') }); continue; }
     if (code.value) seen.set(code.value, line);
-    items.push({ key: 'r' + line, line, code: code.value, name, description: String(get('description')).trim(), price_cents: price, vat_rate: vat.value });
+    items.push({ key: 'r' + line, line, code: code.value, name, description: String(get('description')).trim(), price_cents: price, vat_rate: vat.value, brand_name: String(get('brand')).trim() });
   }
   return { items, errors };
 }
@@ -105,12 +107,26 @@ export async function saveTemplate() {
     name: 'Prodotti',
     columns: [
       { header: 'Nome', width: 36 }, { header: 'Codice', width: 18 }, { header: 'Prezzo', width: 10 },
-      { header: 'IVA', width: 10 }, { header: 'Descrizione', width: 30 }
+      { header: 'IVA', width: 10 }, { header: 'Descrizione', width: 30 }, { header: 'Marchio', width: 22 }
     ],
     rows: [
-      ['Il giardino delle ore', '9788812345671', 18, 'Assolta', 'Marta Rossi'],
-      ['Rotte di sale', '8051234500035', 35, 22, 'Gioco da tavolo, 2-4 giocatori']
+      ['Il giardino delle ore', '9788812345671', 18, 'Assolta', 'Marta Rossi', 'Edizioni Aurora'],
+      ['Rotte di sale', '8051234500035', 35, 22, 'Gioco da tavolo, 2-4 giocatori', 'Giochi Rotta']
     ]
   }]);
   return saveFile('Modello prodotti Bip.xlsx', bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Excel', ['xlsx']);
+}
+
+
+/** Esporta il catalogo nello stesso formato del modello: si reimporta su un'altra cassa. */
+export async function exportCatalog(products, brandName, filename = 'Catalogo Bip.xlsx') {
+  const bytes = buildXlsx([{
+    name: 'Prodotti',
+    columns: [
+      { header: 'Nome', width: 36 }, { header: 'Codice', width: 18 }, { header: 'Prezzo', width: 10, type: 'money' },
+      { header: 'IVA', width: 10 }, { header: 'Descrizione', width: 30 }, { header: 'Marchio', width: 22 }, { header: 'In vendita', width: 11 }
+    ],
+    rows: products.map((p) => [p.name, p.code || '', p.price_cents, p.vat_rate ? p.vat_rate : 'Assolta', p.description || '', p.brand_id ? brandName(p.brand_id) : '', p.active ? 'Sì' : 'No'])
+  }]);
+  return saveFile(filename, bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Excel', ['xlsx']);
 }

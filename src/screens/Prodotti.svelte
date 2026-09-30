@@ -7,6 +7,9 @@
   import BrandsManager from './prodotti/BrandsManager.svelte';
   import ImportChooser from './prodotti/ImportChooser.svelte';
   import ExcelImport from './prodotti/ExcelImport.svelte';
+  import NetImport from './prodotti/NetImport.svelte';
+  import { exportCatalog } from '../lib/excelImport.js';
+  import { showToast } from '../lib/ui.svelte.js';
   import BrandPicker from '../components/BrandPicker.svelte';
   import { app, brandName } from '../lib/state.svelte.js';
   import { pf, editProduct, newProduct, closeForm, saveProduct, askDeleteProduct, confirmDeleteProduct, startSelecting, stopSelecting } from '../lib/products.svelte.js';
@@ -32,6 +35,17 @@
     busy = false;
     if (!ok) revealFirstError(document.querySelector('.split > .r'));
   }
+  // Esporta i prodotti mostrati (o quelli selezionati) nello stesso formato del modello di importazione
+  async function doExport() {
+    const chosen = pf.selecting && pf.sel.size ? app.products.filter((p) => pf.sel.has(p.id)) : list;
+    if (!chosen.length) return;
+    try {
+      const path = await exportCatalog(chosen, brandName, pf.brand && pf.brand !== 'none' ? `Catalogo ${brandName(pf.brand)}.xlsx` : 'Catalogo Bip.xlsx');
+      if (path) showToast('ok', `Esportati ${chosen.length === 1 ? '1 prodotto' : chosen.length + ' prodotti'}`, { detail: path, sound: null });
+    } catch (e) {
+      showToast('err', 'Esportazione non riuscita', { detail: String(e?.message || e) });
+    }
+  }
   function toggleSel(p) {
     const s = new Set(pf.sel);
     s.has(p.id) ? s.delete(p.id) : s.add(p.id);
@@ -56,6 +70,8 @@
   <AdminHeader />
   {#if importing === 'fic'}
     <FicProductsImport onclose={() => (importing = 'choose')} ondone={(m) => { importing = null; pf.form = null; pf.saved = m; }} />
+  {:else if importing === 'net'}
+    <NetImport onclose={() => (importing = 'choose')} ondone={(m) => { importing = null; pf.form = null; pf.saved = m; }} />
   {:else if importing === 'excel'}
     <ExcelImport onclose={() => (importing = 'choose')} ondone={(m) => { importing = null; pf.form = null; pf.saved = m; }} />
   {:else}
@@ -104,6 +120,7 @@
       <div class="searchrow">
         <div class="psearch"><Icon name="search" /><input class="field" placeholder="Cerca per nome, descrizione o codice" bind:value={pf.query} /></div>
         {#if app.products.length}
+          <button type="button" class="outline selbtn" title="Esporta in Excel" onclick={doExport}><Icon name="file_export" /><span>{pf.selecting && pf.sel.size ? 'Esporta selezionati' : 'Esporta'}</span></button>
           <button type="button" class="outline selbtn" class:on={pf.selecting} onclick={() => (pf.selecting ? stopSelecting() : startSelecting())}>
             <Icon name={pf.selecting ? 'close' : 'checklist'} /><span>{pf.selecting ? 'Fine' : 'Seleziona'}</span>
           </button>
