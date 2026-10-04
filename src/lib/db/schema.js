@@ -193,6 +193,12 @@ export const MIGRATIONS = [
     `ALTER TABLE sales ADD COLUMN voided INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE sales ADD COLUMN voided_at TEXT`,
     `ALTER TABLE sales ADD COLUMN void_reason TEXT`
+  ],
+
+  // 7: modifica del metodo di pagamento di una vendita già registrata
+  [
+    `ALTER TABLE sales ADD COLUMN edited_at TEXT`,
+    `ALTER TABLE sales ADD COLUMN method_was TEXT`
   ]
 ];
 

@@ -1,5 +1,7 @@
 <script>
   import Icon from '../../components/Icon.svelte';
+  import Dialog from '../../components/Dialog.svelte';
+  import pkg from '../../../package.json';
   import { app, currentEvent, setCurrentEvent } from '../../lib/state.svelte.js';
   import { ui } from '../../lib/ui.svelte.js';
   import { eur } from '../../lib/money.js';
@@ -37,20 +39,15 @@
     ui.navOpen = false;
     app.screen = screen;
   }
-  function onDocDown(e) {
-    if (ui.eventMenuOpen && !e.target.closest('.evwrap')) ui.eventMenuOpen = false;
-    if (ui.navOpen && !e.target.closest('.navwrap')) ui.navOpen = false;
-  }
+  const closedCount = $derived(app.events.length - openEvents.length);
 </script>
-
-<svelte:document onpointerdown={onDocDown} />
 
 {#if app.shop.logo && app.shop.logoTop}
   <img class="toplogo" src={app.shop.logo} alt={app.shop.name || 'Logo'} />
 {/if}
 
 <div class="evwrap">
-  <button type="button" class="event" aria-expanded={ui.eventMenuOpen} onclick={() => { ui.eventMenuOpen = !ui.eventMenuOpen; ui.navOpen = false; }}>
+  <button type="button" class="event" aria-expanded={ui.eventMenuOpen} onclick={() => { ui.eventMenuOpen = true; ui.navOpen = false; }}>
     <Icon name="event" />
     <span class="evtxt">
       {#if ev}
@@ -66,22 +63,6 @@
     </span>
     <Icon name="expand_more" />
   </button>
-  {#if ui.eventMenuOpen}
-    <div class="menu evmenu">
-      <p class="evhint">
-        {openEvents.length ? "Vendite e omaggi vengono registrati sull'evento selezionato." : 'Non ci sono eventi aperti. Creane uno dalla scheda Eventi.'}
-      </p>
-      {#each openEvents as e (e.id)}
-        <button type="button" class="evitem" class:sel={e.id === app.currentEventId} onclick={() => choose(e.id)}>
-          <span class="evname">{e.name}</span>
-          {#if e.id === app.currentEventId}<Icon name="check" />{/if}
-        </button>
-      {/each}
-      <button type="button" class="navitem sep" onclick={() => { ui.eventMenuOpen = false; app.screen = 'eventi'; }}>
-        <Icon name="tune" /><span>Gestisci eventi</span>
-      </button>
-    </div>
-  {/if}
 </div>
 
 <button type="button" class="netpill" class:on={net.on} aria-label="Stato della rete" onclick={() => (app.screen = 'casse')}>
@@ -91,14 +72,49 @@
 <div class="status {st[0]}" role="status"><Icon name={st[1]} /><span class="num">{ui.status.text}</span></div>
 
 <div class="navwrap">
-  <button type="button" class="icon-btn" aria-label="Menu" aria-expanded={ui.navOpen} onclick={() => { ui.navOpen = !ui.navOpen; ui.eventMenuOpen = false; }}>
-    <Icon name="menu" />
+  <button type="button" class="icon-btn menubtn" aria-label="Menu" aria-expanded={ui.navOpen} onclick={() => { ui.navOpen = true; ui.eventMenuOpen = false; }}>
+    <Icon name="apps" /><span>Menu</span>
   </button>
-  {#if ui.navOpen}
-    <div class="menu navmenu">
+</div>
+
+{#if ui.navOpen}
+  <Dialog label="Menu" onclose={() => (ui.navOpen = false)} sheet>
+    <div class="tsheet-head">
+      <h2>Menu</h2>
+      <button type="button" class="icon-btn" aria-label="Chiudi" onclick={() => (ui.navOpen = false)}><Icon name="close" /></button>
+    </div>
+    <div class="navmenu launcher">
       {#each ADMIN_SCREENS as s (s.key)}
-        <button type="button" class="navitem" onclick={() => go(s.key)}><Icon name={s.icon} /><span>{s.label}</span></button>
+        <button type="button" class="tile" onclick={() => go(s.key)}>
+          <Icon name={s.icon} size={30} />
+          <strong>{s.label}</strong>
+          <small>{s.desc}</small>
+        </button>
       {/each}
     </div>
-  {/if}
-</div>
+    <p class="hint launcher-foot">{app.till.name}{app.shop.name ? ', ' + app.shop.name : ''}. Bip versione {pkg.version}</p>
+  </Dialog>
+{/if}
+
+{#if ui.eventMenuOpen}
+  <Dialog label="Evento" onclose={() => (ui.eventMenuOpen = false)} sheet>
+    <div class="tsheet-head">
+      <h2>Evento in cassa</h2>
+      <button type="button" class="icon-btn" aria-label="Chiudi" onclick={() => (ui.eventMenuOpen = false)}><Icon name="close" /></button>
+    </div>
+    <p class="hint" style="margin:-4px 0 12px">
+      {openEvents.length ? "Vendite e omaggi vengono registrati sull'evento scelto." : 'Non ci sono eventi aperti: creane uno dalla scheda Eventi.'}
+    </p>
+    <div class="tsheet-list">
+      {#each openEvents as e (e.id)}
+        <button type="button" class="tsheet-opt evopt" class:on={e.id === app.currentEventId} onclick={() => choose(e.id)}>
+          <span>{e.name}</span>
+          {#if e.id === app.currentEventId}<Icon name="check" />{/if}
+        </button>
+      {/each}
+    </div>
+    <button type="button" class="outline cs-wide" style="margin-top:14px" onclick={() => { ui.eventMenuOpen = false; app.screen = 'eventi'; }}>
+      <Icon name="tune" /><span>{openEvents.length ? 'Gestisci eventi' : 'Crea un evento'}{closedCount ? ` (${closedCount} chiusi)` : ''}</span>
+    </button>
+  </Dialog>
+{/if}

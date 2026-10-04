@@ -28,6 +28,8 @@
     {#if onpick}
       <rect x={r.x0} y="0" width={r.gw} height={H} class="hit" class:picked={picked === r.key} role="button" tabindex="0"
         aria-label={r.label} onclick={() => onpick(r.key)} onkeydown={(e) => e.key === 'Enter' && onpick(r.key)} />
+    {:else if picked && picked === r.key}
+      <rect x={r.x0} y="0" width={r.gw} height={H} class="pickedband" />
     {/if}
     <rect x={r.xa} y={r.ya} width={r.bw} height={r.ha} rx="3" class="ba" />
     {#if r.a}<text x={r.xa + r.bw / 2} y={r.ya - 8} text-anchor="middle" class="bv">{format(r.a)}</text>{/if}

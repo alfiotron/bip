@@ -53,29 +53,21 @@
 <div class="admin">
   <AdminHeader />
   <div class="abody">
-    <div class="settings">
-      <div class="panel about">
+    <div class="set-page">
+      <section class="panel set-head">
         <img src={logo} alt="" width="56" height="56" />
-        <div><strong>Bip</strong><span>Versione {pkg.version}</span></div>
-      </div>
-
-      <div class="panel row-inline" style="justify-content:space-between">
-        <div><h3 style="margin:0 0 4px">{app.till.name}</h3><p class="hint" style="margin:0">{app.till.role === 'principal' ? 'Cassa principale' : 'Cassa secondaria'}, codice {app.till.id}</p></div>
+        <div class="set-head-txt"><strong>Bip</strong><span>Versione {pkg.version}</span></div>
+        <div class="set-head-till">
+          <strong>{app.till.name}</strong>
+          <span>{app.till.role === 'principal' ? 'Cassa principale' : 'Cassa secondaria'}, codice {app.till.id}</span>
+        </div>
         <button type="button" class="outline sm" onclick={() => (app.screen = 'casse')}><Icon name="point_of_sale" /><span>Casse e rete</span></button>
-      </div>
+      </section>
 
-      <ShopSettings />
-
-      {#if app.till.role === 'principal'}
-        <MailSettings />
-      {/if}
-
-      {#if app.till.role === 'principal'}
-        <FicSettings />
-      {:else}
-        <div class="panel"><h3>Fatture in Cloud</h3><p class="hint" style="margin:0">Il collegamento a Fatture in Cloud si usa dalla cassa principale. I prodotti importati arrivano qui con la sincronizzazione.</p></div>
-      {/if}
-
+      <div class="set-grid">
+        <div class="cs-stack">
+          <p class="set-sect">Attività, aspetto e dati</p>
+          <ShopSettings />
       <div class="panel">
         <h3>Colore</h3>
         <div class="chips" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
@@ -86,14 +78,12 @@
           {/each}
         </div>
       </div>
-
       <div class="panel">
         <button type="button" class="switch inl" class:on={app.sound} role="switch" aria-checked={app.sound} onclick={() => { saveSetting('sound', !app.sound); play('ok'); }}>
           <span>Suoni della cassa</span><span class="knob"></span>
         </button>
         <p class="hint" style="margin-top:0">Un bip per ogni lettura riuscita e un suono diverso per avvisi ed errori.</p>
       </div>
-
       {#if app.till.role === 'principal'}
       <div class="panel">
         <h3>Dati di prova</h3>
@@ -117,8 +107,20 @@
         {#if demoMsg}<p class="okmsg" use:reveal>{demoMsg}</p>{/if}
       </div>
       {/if}
-
-      <ResetPanel />
+          <ResetPanel />
+        </div>
+        <div class="cs-stack">
+          <p class="set-sect">Servizi collegati</p>
+      {#if app.till.role === 'principal'}
+        <MailSettings />
+      {/if}
+      {#if app.till.role === 'principal'}
+        <FicSettings />
+      {:else}
+        <div class="panel"><h3>Fatture in Cloud</h3><p class="hint" style="margin:0">Il collegamento a Fatture in Cloud si usa dalla cassa principale. I prodotti importati arrivano qui con la sincronizzazione.</p></div>
+      {/if}
+        </div>
+      </div>
     </div>
   </div>
 </div>

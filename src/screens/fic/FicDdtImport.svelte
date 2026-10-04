@@ -1,4 +1,5 @@
 <script>
+  import BrandPicker from '../../components/BrandPicker.svelte';
   import Icon from '../../components/Icon.svelte';
   import FicNotConnected from './FicNotConnected.svelte';
   import { app, reloadProducts, refreshEventData } from '../../lib/state.svelte.js';
@@ -24,7 +25,7 @@
   let details = $state({}); // id → righe del DDT
   let imported = $state({}); // 'dn:id' → nome dell'evento in cui è già stato importato
   let createMissing = $state(true);
-  let brandId = $state('');
+  let brandId = $state(null);
   let busy = $state(false);
 
   async function load(more = false) {
@@ -185,12 +186,8 @@
         </button>
         <p class="hint" style="margin-top:0">{createMissing ? 'Vengono creati con nome, codice, prezzo e aliquota del DDT.' : 'I prodotti mancanti vengono saltati.'}</p>
         {#if createMissing && app.brands.length}
-          <label class="sellab" style="margin-top:8px"><span>Marchio</span>
-            <select class="sel" bind:value={brandId}>
-              <option value="">Senza marchio</option>
-              {#each app.brands as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
-            </select>
-          </label>
+          <span class="flabel">Marchio dei prodotti creati</span>
+          <BrandPicker bind:value={brandId} />
         {/if}
       {/if}
       {#if unknown.length}<p class="hint">Le righe senza codice e senza prodotto collegato non vengono importate.</p>{/if}

@@ -1,4 +1,5 @@
 <script>
+  import TouchSelect from '../components/TouchSelect.svelte';
   import { reveal, revealFirstError } from '../lib/reveal.js';
   import Icon from '../components/Icon.svelte';
   import Cover from '../components/Cover.svelte';
@@ -107,13 +108,7 @@
         </div>
         {#if app.brands.length}
           <div class="aright">
-            <label class="sellab"><span>Marchio</span>
-              <select class="sel" bind:value={pf.brand}>
-                <option value="">Tutti i marchi</option>
-                {#each app.brands as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
-                <option value="none">Senza marchio</option>
-              </select>
-            </label>
+            <TouchSelect bind:value={pf.brand} label="Marchio" options={[{ value: '', label: 'Tutti i marchi' }, ...app.brands.map((b) => ({ value: b.id, label: b.name })), { value: 'none', label: 'Senza marchio' }]} />
           </div>
         {/if}
       </div>

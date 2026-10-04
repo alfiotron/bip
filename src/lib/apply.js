@@ -31,6 +31,15 @@ async function deleteEventData(eventId) {
   await x('DELETE FROM events WHERE id = ?', [eventId]);
 }
 
+/** Cambia il metodo di pagamento (carta o contanti) di una vendita, ricordando quello originale. */
+async function setMethod(p, at) {
+  if (!['card', 'cash'].includes(p.method)) return;
+  const r = await q('SELECT method, method_was, edited_at FROM sales WHERE id = ?', [p.sale_id]);
+  if (!r.length || r[0].method === 'gift') return;
+  if (r[0].edited_at && r[0].edited_at > at) return; // c'è già una modifica più recente
+  await x('UPDATE sales SET method = ?, method_was = COALESCE(method_was, ?), edited_at = ? WHERE id = ?', [p.method, r[0].method, at, p.sale_id]);
+}
+
 /** Anagrafiche (prodotti, eventi, clienti): vince la modifica più recente. */
 async function upsertLatest(table, cols, p, e) {
   if (await isDeleted(p.id)) return;
@@ -94,8 +103,14 @@ export async function applyEntry(e) {
       // Annullamento arrivato prima della vendita (da un'altra cassa): la vendita nasce già annullata
       const v = await q(`SELECT at FROM deleted WHERE id = ? AND kind = 'sale_void'`, [p.id]);
       if (v.length) await x('UPDATE sales SET voided = 1, voided_at = ? WHERE id = ?', [v[0].at, p.id]);
+      // Modifiche del pagamento arrivate prima della vendita: si riapplicano ora, in ordine
+      const edits = await q(`SELECT * FROM journal WHERE kind = 'sale.method' AND payload LIKE ? ORDER BY at, origin, seq`, ['%"sale_id":"' + p.id + '"%']);
+      for (const ed of edits) await setMethod(JSON.parse(ed.payload), ed.at);
       return;
     }
+
+    case 'sale.method':
+      return setMethod(p, e.at);
 
     case 'sale.void':
       await x(`INSERT OR IGNORE INTO deleted (id, kind, at) VALUES (?, 'sale_void', ?)`, [p.sale_id, e.at]);

@@ -1,4 +1,5 @@
 <script>
+  import TouchSelect from '../components/TouchSelect.svelte';
   import Icon from '../components/Icon.svelte';
   import Cover from '../components/Cover.svelte';
   import AdminHeader from '../components/AdminHeader.svelte';
@@ -59,11 +60,8 @@
     <AdminHeader>
       {#snippet actions()}
         {#if events.length}
-          <label class="sellab"><span>Evento</span>
-            <select class="sel" bind:value={dz.eventId} onchange={() => (dz.selected = null)}>
-              {#each events as e (e.id)}<option value={e.id}>{e.name}{e.is_open ? '' : ' (chiuso)'}</option>{/each}
-            </select>
-          </label>
+          <TouchSelect bind:value={dz.eventId} label="Evento" onchange={() => (dz.selected = null)}
+              options={events.map((e) => ({ value: e.id, label: e.name, group: e.is_open ? 'Aperti' : 'Chiusi' }))} />
           {#if ev && ev.is_open}
             <button type="button" class="outline sm" onclick={() => (dz.importing = true)}><Icon name="cloud_download" /><span>Importa<span class="long">{" "}dai DDT</span></span></button>
           {/if}
@@ -91,13 +89,7 @@
             </div>
             {#if app.brands.length}
               <div class="aright">
-                <label class="sellab"><span>Marchio</span>
-                  <select class="sel" bind:value={dz.brand}>
-                    <option value="">Tutti i marchi</option>
-                    {#each app.brands as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
-                    <option value="none">Senza marchio</option>
-                  </select>
-                </label>
+                <TouchSelect bind:value={dz.brand} label="Marchio" options={[{ value: '', label: 'Tutti i marchi' }, ...app.brands.map((b) => ({ value: b.id, label: b.name })), { value: 'none', label: 'Senza marchio' }]} />
               </div>
             {/if}
           </div>

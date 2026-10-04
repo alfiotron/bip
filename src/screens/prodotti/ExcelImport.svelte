@@ -1,4 +1,5 @@
 <script>
+  import TouchSelect from '../../components/TouchSelect.svelte';
   import Icon from '../../components/Icon.svelte';
   import ImportList from '../../components/ImportList.svelte';
   import { readTable } from '../../lib/sheet.js';
@@ -68,12 +69,9 @@
       <p class="hint" style="margin:-8px 0 12px">Le ho riconosciute dalle intestazioni: controlla che siano giuste.</p>
       <div class="mapgrid">
         {#each FIELDS as f (f.key)}
-          <label class="sellab"><span>{f.label}{f.required ? '' : ' (facoltativo)'}</span>
-            <select class="sel" class:bad={f.required && map[f.key] === undefined} value={map[f.key] ?? ''} onchange={(e) => setMap(f.key, e.currentTarget.value)}>
-              <option value="">{f.required ? 'Scegli la colonna' : 'Nessuna'}</option>
-              {#each columns as c (c.i)}<option value={c.i}>{c.label}</option>{/each}
-            </select>
-          </label>
+          <TouchSelect value={map[f.key] ?? ''} label={f.label + (f.required ? '' : ' (facoltativo)')} invalid={f.required && map[f.key] === undefined} wide
+            placeholder={f.required ? 'Scegli la colonna' : 'Nessuna'} onchange={(v) => setMap(f.key, v)}
+            options={[...(f.required ? [] : [{ value: '', label: 'Nessuna' }]), ...columns.map((c) => ({ value: c.i, label: c.label }))]} />
         {/each}
       </div>
       <span class="flabel">{map.vat === undefined ? 'Aliquota IVA per tutti i prodotti' : "Aliquota IVA per le righe in cui è vuota"}</span>

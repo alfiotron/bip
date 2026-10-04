@@ -1,4 +1,5 @@
 <script>
+  import TouchSelect from '../components/TouchSelect.svelte';
   import Icon from '../components/Icon.svelte';
   import Cover from '../components/Cover.svelte';
   import BarChart from '../components/BarChart.svelte';
@@ -143,27 +144,14 @@
           <button type="button" role="tab" aria-selected={tab === 'sales'} class:on={tab === 'sales'} onclick={() => (tab = 'sales')}>Vendite</button>
         </div>
         <div class="aright">
-          <label class="sellab"><span>Evento</span>
-            <select class="sel" bind:value={eventId} onchange={changeEvent}>
-              {#each events as e (e.id)}<option value={e.id}>{e.name}{e.is_open ? '' : ' (chiuso)'}</option>{/each}
-            </select>
-          </label>
+          <TouchSelect bind:value={eventId} label="Evento" onchange={changeEvent}
+            options={events.map((e) => ({ value: e.id, label: e.name, group: e.is_open ? 'Aperti' : 'Chiusi' }))} />
           {#if tab === 'prod' && app.brands.length}
-            <label class="sellab"><span>Marchio</span>
-              <select class="sel" bind:value={brand}>
-                <option value="">Tutti i marchi</option>
-                {#each app.brands as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
-                <option value="none">Senza marchio</option>
-              </select>
-            </label>
+            <TouchSelect bind:value={brand} label="Marchio" options={[{ value: '', label: 'Tutti i marchi' }, ...app.brands.map((b) => ({ value: b.id, label: b.name })), { value: 'none', label: 'Senza marchio' }]} />
           {/if}
           {#if tab === 'sum' && !day}
-            <label class="sellab"><span>Confronta con</span>
-              <select class="sel" bind:value={compareId}>
-                <option value="">Nessun confronto</option>
-                {#each events.filter((e) => e.id !== eventId) as e (e.id)}<option value={e.id}>{e.name}{e.is_open ? '' : ' (chiuso)'}</option>{/each}
-              </select>
-            </label>
+            <TouchSelect bind:value={compareId} label="Confronta con"
+              options={[{ value: '', label: 'Nessun confronto' }, ...events.filter((e) => e.id !== eventId).map((e) => ({ value: e.id, label: e.name, group: e.is_open ? 'Aperti' : 'Chiusi' }))]} />
           {/if}
         </div>
       </div>
@@ -215,8 +203,7 @@
             <div class="panel">
               <h3>Incasso per giorno</h3>
               {#if cmp && b}<div class="legend"><span><i></i>{ev.name}</span><span><i class="b"></i>{cmp.name}</span></div>{/if}
-              <BarChart bars={incomeBars} format={short} showB={!!(cmp && b)} ariaLabel="Incasso per giorno" onpick={a.days.length > 1 ? (k) => (day = day === k ? null : k) : null} picked={day} />
-              {#if a.days.length > 1}<p class="hint" style="margin:4px 0 0">Tocca un giorno per vedere solo i suoi dati.</p>{/if}
+              <BarChart bars={incomeBars} format={short} showB={!!(cmp && b)} ariaLabel="Incasso per giorno" picked={day} />
             </div>
             <div class="stack">
               <div class="panel">
@@ -308,7 +295,7 @@
           </div>
         {/if}
       {:else if a && tab === 'sales'}
-        <SalesList sales={a.allSales} {tillName} {dayLabel} />
+        <SalesList sales={a.allSales} {tillName} {dayLabel} eventId={ev.id} />
       {:else if a}
         {#if pick}
           <div class="panel pickpanel">
@@ -329,7 +316,7 @@
             {/if}
             <h3 style="margin:18px 0 6px">Andamento giorno per giorno</h3>
             {#if pickHasGifts}<div class="legend"><span><i></i>Venduti</span><span><i class="b"></i>Omaggi</span></div>{/if}
-            <BarChart bars={pickBars} showB={pickHasGifts} ariaLabel="Pezzi venduti per giorno" onpick={(k) => (day = day === k ? null : k)} picked={day} />
+            <BarChart bars={pickBars} showB={pickHasGifts} ariaLabel="Pezzi venduti per giorno" picked={day} />
           </div>
         {/if}
         <div class="panel">

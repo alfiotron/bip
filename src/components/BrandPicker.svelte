@@ -1,15 +1,22 @@
 <script>
-  // Scelta del marchio: pulsanti se i marchi sono pochi, menu a tendina se sono tanti.
+  // Scelta del marchio: pulsanti se i marchi sono pochi, un elenco da toccare se sono tanti.
   // Con allowCreate si può creare un marchio nuovo senza lasciare la scheda.
   import Icon from './Icon.svelte';
+  import TouchSelect from './TouchSelect.svelte';
   import { app } from '../lib/state.svelte.js';
   import { createBrand, brandExists } from '../lib/brands.js';
+  import { reveal } from '../lib/reveal.js';
 
   let { value = $bindable(null), allowCreate = false } = $props();
 
   let creating = $state(false);
   let name = $state('');
   let err = $state('');
+  const count = (id) => app.products.filter((p) => (p.brand_id || null) === id).length;
+  const options = $derived([
+    { value: null, label: 'Senza marchio' },
+    ...app.brands.map((b) => ({ value: b.id, label: b.name, hint: `${count(b.id)} prodotti` }))
+  ]);
 
   async function create() {
     const n = name.trim();
@@ -28,22 +35,27 @@
     {#each app.brands as b (b.id)}
       <button type="button" class:on={value === b.id} onclick={() => (value = b.id)}>{b.name}</button>
     {/each}
+    {#if allowCreate && !creating}
+      <button type="button" class="addchip" onclick={() => (creating = true)}><Icon name="add" size={20} />Nuovo marchio</button>
+    {/if}
   </div>
 {:else}
-  <select class="sel field" value={value || ''} onchange={(e) => (value = e.currentTarget.value || null)}>
-    <option value="">Senza marchio</option>
-    {#each app.brands as b (b.id)}<option value={b.id}>{b.name}</option>{/each}
-  </select>
+  <div class="brandrow">
+    <TouchSelect bind:value {options} label="Marchio" wide />
+    {#if allowCreate && !creating}
+      <button type="button" class="addchip" onclick={() => (creating = true)}><Icon name="add" size={20} />Nuovo marchio</button>
+    {/if}
+  </div>
 {/if}
 
-{#if allowCreate}
-  {#if creating}
-    <div class="newev" style="margin-top:8px">
+{#if allowCreate && creating}
+  <div class="newbrand" use:reveal>
+    <span class="flabel" style="margin-top:0">Nuovo marchio</span>
+    <div class="newev">
       <input class="field" placeholder="Nome del marchio" bind:value={name} oninput={() => (err = '')} onkeydown={(e) => e.key === 'Enter' && create()} />
       <button type="button" class="solid" onclick={create}>Crea</button>
     </div>
     {#if err}<p class="kerr">{err}</p>{/if}
-  {:else}
-    <button type="button" class="linkb" style="margin-top:6px" onclick={() => (creating = true)}><Icon name="add" size={18} />Nuovo marchio</button>
-  {/if}
+    <button type="button" class="linkb" onclick={() => { creating = false; err = ''; }}>Annulla</button>
+  </div>
 {/if}
