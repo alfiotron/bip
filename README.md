@@ -94,8 +94,10 @@ Per rigenerare tutti i formati dopo una modifica:
 npx tauri icon app-icon.png -o src-tauri/icons
 ```
 
-L'identificativo interno dell'app (`it.cassafiera.app` in `src-tauri/tauri.conf.json`) **non va cambiato**:
-decide la cartella in cui si trova il database, e cambiandolo l'app non ritroverebbe i dati già registrati.
+L'identificativo interno dell'app (`it.cassafiera.bip` in `src-tauri/tauri.conf.json`) **non va cambiato**:
+decide la cartella in cui si trova il database. Le prime versioni usavano `it.cassafiera.app`: al primo avvio
+Bip copia da sola il database dalla vecchia cartella alla nuova (`src-tauri/src/lib.rs`, `migrate_old_data`),
+lasciando la copia vecchia come riserva.
 
 ## Come è organizzato il codice
 

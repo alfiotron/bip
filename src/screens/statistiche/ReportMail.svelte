@@ -13,7 +13,9 @@
   let { event, day, onclose } = $props();
 
   let cfg = $state(null);
-  let whole = $state(!day);
+  // Periodo del report: se è scelto un giorno si propone quel giorno, finché non si sceglie diversamente
+  let wholeChoice = $state(null);
+  const whole = $derived(wholeChoice ?? !day);
   let to = $state('');
   let extra = $state('');
   let stale = $state([]);
@@ -72,8 +74,8 @@
     <p class="hint" style="margin:4px 0 12px">Un file Excel con un foglio di riepilogo e un foglio per ogni marchio. Serve una connessione a internet.</p>
     {#if day}
       <div class="seg two" role="group" aria-label="Periodo" style="max-width:420px">
-        <button type="button" class:on={whole} onclick={() => (whole = true)}>Tutto l'evento</button>
-        <button type="button" class:on={!whole} onclick={() => (whole = false)}>Solo {dayLabelLong(day)}</button>
+        <button type="button" class:on={whole} onclick={() => (wholeChoice = true)}>Tutto l'evento</button>
+        <button type="button" class:on={!whole} onclick={() => (wholeChoice = false)}>Solo {dayLabelLong(day)}</button>
       </div>
     {/if}
     {#if stale.length}

@@ -1,3 +1,4 @@
+import { voidSale } from './salesOps.js';
 import { app, currentEvent, productByCode, refreshEventData } from './state.svelte.js';
 import { showToast, setStatus } from './ui.svelte.js';
 import { record } from './journal.js';
@@ -195,7 +196,6 @@ export async function confirmPay() {
   const undo = {
     label: 'Annulla e riporta nel carrello',
     run: async () => {
-      const { voidSale } = await import('./salesOps.js');
       await voidSale(sale.id, 'Errore di cassa');
       pos.lines = snapshot.lines;
       pos.discount = snapshot.discount;

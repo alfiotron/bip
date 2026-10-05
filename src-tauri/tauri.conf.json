@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Bip",
   "version": "../package.json",
-  "identifier": "it.cassafiera.app",
+  "identifier": "it.cassafiera.bip",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",

@@ -1,5 +1,6 @@
 import { record } from './journal.js';
-import { refreshEventData } from './state.svelte.js';
+import { app, refreshEventData } from './state.svelte.js';
+import { pos } from './pos.svelte.js';
 
 // Correzioni delle vendite. Valgono su tutte le casse.
 
@@ -22,8 +23,6 @@ export async function changeMethod(saleId, method) {
  * con lo stesso sconto, per essere corretti e pagati di nuovo.
  */
 export async function correctSale(sale) {
-  const { pos } = await import('./pos.svelte.js');
-  const { app } = await import('./state.svelte.js');
   await voidSale(sale.id, 'Correzione');
   pos.lines = sale.lines.map((l) => ({
     key: l.product_id || 'free-' + l.id,

@@ -1,5 +1,5 @@
 import { q, x, getMeta, setMeta } from '../db/index.js';
-import { record } from '../journal.js';
+import { record, setJournalTill } from '../journal.js';
 import { uuid } from '../ids.js';
 
 // Identità di questa cassa e dati di collegamento, salvati solo qui (tabella meta).
@@ -46,7 +46,6 @@ export async function becomePrincipal(name) {
   await setMeta('till_id', id);
   await setMeta('till_role', 'principal');
   if (!(await getMeta('shop_id', ''))) await setMeta('shop_id', uuid());
-  const { setJournalTill } = await import('../journal.js');
   setJournalTill(id);
   await record('till.upsert', { id, name: name.trim() || 'Cassa 1', role: 'principal', removed: 0 });
   return id;
